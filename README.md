@@ -1,10 +1,47 @@
-# taxi-booker
-Merge ở branch `UI` (nếu không biết xài git thì hỏi mình 🐧)
+# Ứng dụng di động taxi
+___
+## Lưu ý
+- Xem ở branch `customer` và `driver`
 
-## Lưu ý khi merge:
-0) Nếu lên giao diện / chạy được code mà không bị lỗi gì (không tính warning) thì khỏi làm 2 3 bước dưới
-1) Đổi dòng 1 của `pubspec.yaml` thành tên folder cha (của mình là `flutter_app_texting`, "testing" bị sai chính tả)
-2) Thư viện được thêm: `dotted_border`.
-   - Cách thêm: gõ `flutter pub add dotted_border` vào terminal.
-4) Đổi các đường dẫn trong các file `.dart`. Ví dụ: `package:flutter_app_texting/screens/navigation.dart` sẽ thành `package:<tên folder cha>/screens/navigation.dart`
+## Thông tin
+- **Tính chất**: Front-end
+- **Ngôn ngữ lập trình**: Dart
+- **Framework**: Flutter
+- **Kiến trúc**: MVVM (Model - View - Viewmodel)
 
+## Các chức năng
+- [ ] Tài khoản
+  - [ ] Đăng ký
+  - [x] Đăng nhập
+  - [x] Đăng xuất
+  - [ ] Đổi thông tin
+  - [ ] Đổi mật khẩu / quên mật khẩu
+  - [ ] Xác thực
+- [x] Màn hình
+  - [x] Giao diện tài khoản 
+  - [x] Màn hình chính
+  - [x] Lịch sử
+- [x] Bản đồ:
+  - [x] Hiện vị trí hiện tại
+  - [x] Hiện vị trí cần đến
+  - [x] Hiện vị trí tài xế
+  - [x] Vạch đường đi
+ - [x] API:
+   - [x] Tài khoản
+   - [x] Bản đồ (OpenStreetMap, flutter_map, OpenRouteService)
+   - [x] Thời tiết (OpenWeatherMap)
+ - [x] Thông báo
+
+## Các thư viện sử dụng
+- provider
+- dotted_border
+- http
+- shared_preferences
+- location
+- intl
+- flutter_map
+- latlong2
+- url_launcher
+- flutter_local_notifications
+- rxdart
+- timezone
