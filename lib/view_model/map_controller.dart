@@ -1,10 +1,11 @@
 import "dart:developer" as developer;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_app_texting/model/map_api.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:location_picker_flutter_map/location_picker_flutter_map.dart';
 
-import '/model/map_api.dart';
+import '/general/function.dart';
 import '/data/map_api_reader.dart';
 
 
@@ -14,58 +15,120 @@ class MapAPIController with ChangeNotifier {
   MapAPI mapAPI = MapAPI();
 
 
+
   Future updatePickupLatLng(LatLng value) async {
     mapAPI.pickupLatLng = value;
     notifyListeners();
   }
 
-  Future updateDriverLatLng(LatLng value) async {
-    mapAPI.driverLatLng = value;
+  Future updatePickupAddr() async {
+    final result = await MapAPIReader().getAddr(mapAPI.pickupLatLng);
+    if (result["status"]) {
+      mapAPI.pickupAddr = result["body"];
+    }
+    else {
+      developer.log("Unable to find the pickup address.");
+    }
     notifyListeners();
   }
 
 
 
-  Future<bool> updateCustomer() async {
-    developer.log("Check if there is a customer.");
+  Future<bool> updateDropoffbyText(String text) async {
 
-    final result = await MapAPIReader().getCustomer();
+    if (text.isEmpty) {
+      return Future.value(false);
+    }
+
+    final result = await MapAPIReader().getPickedData(text);
     if (result["status"]) {
-      final jsonVal = result["body"];
-      mapAPI.customerId = jsonVal["customer_id"];
-      mapAPI.customerPhonenumber = jsonVal["phone"];
-      mapAPI.pickupAddr  = jsonVal["pickup_address"];
-      mapAPI.dropoffAddr = jsonVal["dropoff_address"]; 
-      mapAPI.pickupLatLng  = LatLng(jsonVal["pickup_latitude"], jsonVal["pickup_longitude"]);
-      mapAPI.dropoffLatLng = LatLng(jsonVal["dropoff_latitude"], jsonVal["dropoff_longitude"]);
-
-      mapAPI.price = jsonVal["price"];
-      mapAPI.distance = jsonVal["distance"];
-      mapAPI.duration = jsonVal["duration"];
+      mapAPI.dropoffLatLng = LatLng(result["body"].latLong.latitude, result["body"].latLong.longitude);
+      mapAPI.dropoffAddr = result["body"].address;
       notifyListeners();
       return Future.value(true);
     }
     else {
+      developer.log("Unable to find the dropoff pickedData.");
       notifyListeners();
       return Future.value(false);
     }
   }
 
-  
 
-  // Start to end = S2E
-  Future updateS2EPolyline() async {
-    final result = await MapAPIReader().getPolyline(mapAPI.pickupLatLng, mapAPI.dropoffLatLng, Colors.orange.shade700);
-    if (result["status"]) { mapAPI.s2ePolylines = result["polyline"]; }
-    else { developer.log("Unable to find the path between pickup and dropoff locations."); }
+
+  void updateDropoffByPickedData(PickedData pickedData) {
+    mapAPI.dropoffAddr = pickedData.address;
+    mapAPI.dropoffLatLng = LatLng( pickedData.latLong.latitude, pickedData.latLong.longitude );
     notifyListeners();
   }
 
+  
+
+  // Start to end = S2E
+  Future updateS2EPolyline({int vehicleID = 0}) async {
+    if (vehicleID == 0) {
+      final result = await MapAPIReader().getPolyline(mapAPI.pickupLatLng, mapAPI.dropoffLatLng, Colors.orange.shade700, quick: true);
+      if (result["status"]) {
+        mapAPI.s2ePolylines = result["polyline"];
+      }
+      else {
+        developer.log("Unable to find the path between pickup and dropoff locations.");
+      }
+    }
+    else {
+      final result = await MapAPIReader().getPolyline(mapAPI.pickupLatLng, mapAPI.dropoffLatLng, Colors.orange.shade700);
+      if (result["status"]) {
+        mapAPI.s2ePolylines = result["polyline"];
+        mapAPI.distance = result["distance"];
+        mapAPI.duration = result["duration"];
+        mapAPI.goodHour = result["good_hour"];
+        mapAPI.goodWeather = result["good_weather"];
+        mapAPI.price = getPrice(result["distance"], vehicleID, goodHour: mapAPI.goodHour, goodWeather: mapAPI.goodWeather);
+      }
+      else {
+        developer.log("Unable to find the path between pickup and dropoff locations.");
+      }
+    }
+    notifyListeners();
+  }
+
+
+
   // Driver to start = D2S
   Future updateD2SPolyline() async {
-    final result = await MapAPIReader().getPolyline(mapAPI.driverLatLng, mapAPI.pickupLatLng, Colors.brown.shade700);
-    if (result["status"]) { mapAPI.d2sPolylines = result["polyline"]; }
-    else { developer.log("Unable to find the path between driver and pickup locations."); }
+    final result = await MapAPIReader().getPolyline(mapAPI.driverLatLng, mapAPI.pickupLatLng, Colors.brown.shade700, quick: true);
+    if (result["status"]) {
+      mapAPI.d2sPolylines = result["polyline"];
+    }
+    else {
+      developer.log("Unable to find the path between driver and pickup locations.");
+    }
+    notifyListeners();
+  }
+  
+
+
+  Future<bool> updateReadDriver() async {
+    final result = await MapAPIReader().getNearestDriver(mapAPI.pickupLatLng);
+    if (result["status"]) {
+      mapAPI.driverName = result["username"];
+      mapAPI.driverPhonenumber = result["phonenumber"];
+      mapAPI.driverLatLng = result["latlng"];
+      notifyListeners();
+      return Future.value(true);
+    }
+    else {
+      developer.log("Unable to find the nearest driver.");
+      notifyListeners();
+      return Future.value(false);
+    }
+  }
+
+
+
+  Future updateDriverLatLng() async {
+    final newLatLng = await MapAPIReader().getDriverLatLng(mapAPI.driverId);
+    mapAPI.driverLatLng = newLatLng;
     notifyListeners();
   }
 
@@ -77,28 +140,55 @@ class MapAPIController with ChangeNotifier {
   }
 
 
-  Future postDriverLatLng() async {
-    await MapAPIReader().postDriverLatLng(mapAPI.driverLatLng);
+
+  void updateDatetime(int hour, int minute) {
+    mapAPI.bookingTime = DateTime.now().toLocal();
+    if ((hour != 0) || (minute != 0)) {
+      mapAPI.bookingTime = DateTime(mapAPI.bookingTime.year, mapAPI.bookingTime.month, mapAPI.bookingTime.day,
+                                  hour, minute, 5, mapAPI.bookingTime.millisecond, mapAPI.bookingTime.microsecond);
+      notifyListeners();
+    }
   }
 
 
 
-  Future saveTrip() async {
-    await mapAPI.saveTrip();
+  void updatePrice(int newPrice) {
+    mapAPI.price = newPrice;
+    notifyListeners();
   }
 
-  Future loadTrip() async {
-    await mapAPI.loadTrip();
+
+
+  Future saveCustomer() async {
+    await mapAPI.saveCustomer();
+  }
+
+  Future saveDriver() async {
+    await mapAPI.saveDriver();
+  }
+
+  Future loadCustomer() async {
+    await mapAPI.loadCustomer();
     await updateS2EPolyline();
+    notifyListeners();
+  }
+
+  Future loadDriver() async {
+    await mapAPI.loadDriver();
     await updateD2SPolyline();
     notifyListeners();
   }
 
+  Future loadBookingTime() async {
+    final newDate = await mapAPI.loadBookingTime();
+    notifyListeners();
+    return newDate;
+  }
+
   Future clearAll() async {
     await mapAPI.clearData();
-    await mapAPI.loadTrip();
-    mapAPI.s2ePolylines = Polyline(points: <LatLng>[]);
-    mapAPI.d2sPolylines = Polyline(points: <LatLng>[]);
+    await mapAPI.loadCustomer();
+    await mapAPI.loadDriver();
     notifyListeners();
   }
   

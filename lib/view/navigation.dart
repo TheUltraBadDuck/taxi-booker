@@ -10,7 +10,6 @@ import '/view/account/register_screen.dart' show RegisterScreen;
 import '/view/account/login_screen.dart' show LoginScreen;
 
 import '/view_model/user_controller.dart';
-import '/view/decoration.dart';
 
 
 
@@ -36,8 +35,6 @@ class _NavigationChangeState extends State<NavigationChange> {
   int bottomId = 0;             // Navigation
   List<Widget> _children = [];  // Navigation
 
-  bool navigatable = false;
-
 
 
   @override
@@ -48,9 +45,7 @@ class _NavigationChangeState extends State<NavigationChange> {
       create: (_) {
         UserController userController = UserController();
         _children = [
-          HomeScreen(userController: userController, setNavigatable: (bool value) {
-            setState(() => navigatable = value);
-          }),
+          HomeScreen(userController: userController),
           HistoryScreen(userController: userController),
           ProfileScreen(userController: userController, onLogOut: () async {
             setState(() {
@@ -106,7 +101,7 @@ class _NavigationChangeState extends State<NavigationChange> {
               return Scaffold(
     
                 backgroundColor: Colors.yellow.shade100,
-                body: SafeArea(child: IndexedStack(index: bottomId, children: _children)),
+                body: SafeArea(child: _children[bottomId]),
     
                 bottomNavigationBar: BottomNavigationBar(
     
@@ -121,14 +116,7 @@ class _NavigationChangeState extends State<NavigationChange> {
                   unselectedIconTheme:  const IconThemeData( size: 24 ),
     
                   currentIndex: bottomId,
-                  onTap: (value) {
-                    if (navigatable) {
-                      setState(() => bottomId = value);
-                    }
-                    else {
-                      warningModal(context, "Hãy tắt nút 'Hoạt động' ở trên để có thể thao tác nút dưới đây.");
-                    }
-                  },
+                  onTap: (value) => setState(() => bottomId = value),
                   
                   items: const [
                     BottomNavigationBarItem(icon: Icon(Icons.map),     label: "Bản đồ"),

@@ -1,32 +1,23 @@
-import 'dart:async';
 import "dart:developer" as developer;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:location/location.dart';
+import 'package:dotted_border/dotted_border.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '/notification.dart';
-import '/general/function.dart';
+
+import '../../view_model/history_controller.dart';
 import '/view_model/user_controller.dart';
-import '/view_model/map_controller.dart';
-import 'customer/customer_accepted_box.dart';
-import 'customer/customer_info_box.dart';
 
+import '/view/decoration.dart';
+import '/view/book/book_screen.dart' show BookScreen;
 
-
-typedef BoolCallBack = Function(bool value);
-
-enum DriverState { idleState, receiveState, tripState }
 
 
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({ Key? key, required this.userController, required this.setNavigatable }) : super(key: key);
+  const HomeScreen({ Key? key, required this.userController }) : super(key: key);
   final UserController userController;
-  final BoolCallBack setNavigatable;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -34,359 +25,504 @@ class HomeScreen extends StatefulWidget {
 
 
 
+
 class _HomeScreenState extends State<HomeScreen> {
 
-  // Thông tin người dùng (vị trí hiện tại, vị trí cần đến, khoảng cách, thời gian)
-  int vehicleID = 0;
-
-
-  // Thông tin liên quan để hiển thị trên bản đồ
-  bool allowedNavigation = false;
-  Location location = Location();
-
-  MapController mapController = MapController();
-
-  bool driverPickingUp = false;
-
-  final Noti noti = Noti();
-
-  Timer? receiveCustomerTimer;
-  Timer? sendDriverLatLngTimer;
-
-  bool loadReceiveCustomerTimerOnce = false;
-  bool loadSendDriverLatLngTimerOnce = false;
-
-  int numTemp = 0;
+  int vehicleID = 1;
   bool loadOnce = false;
 
-
-
-
-  bool active = true;
-  bool tracking = true;
-
-  DriverState driverState = DriverState.idleState;
-
-
-
-  @override
-  void initState() {
-    super.initState();
-    noti.initialize();
-  }
+  bool duringTrip = false;
 
 
 
   @override
   Widget build(BuildContext context) {
 
-    return Scaffold(
-
-      backgroundColor: Colors.orange.shade100,
-
-      body: ChangeNotifierProvider(
-
-        create: (_) {
-          MapAPIController mapAPIController = MapAPIController();
-
-          // Lắng nghe định vị GPS
-          location.onLocationChanged.listen((LocationData currLocation) {
-            final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
-
-            double distance = getDescrateDistanceSquare(mapAPIController.mapAPI.driverLatLng, newLocation);
-            if (distance > 10e-7) {
-
-              if (mounted) {
-                mapAPIController.updateDriverLatLng(newLocation);
-                setState(() => allowedNavigation = true);
-              }
-
-              // Cập nhật nếu đến đích
-              if (driverPickingUp && (getDescrateDistanceSquare(mapAPIController.mapAPI.driverLatLng, mapAPIController.mapAPI.dropoffLatLng) < 20e-6)) {
-                finishTrip(mapAPIController);
-              }
-            }
-            if ((distance > 20e-6) && (tracking)) {
-              setState(() => mapController.move(mapAPIController.mapAPI.driverLatLng, 16.5));
-            }
-
-            // Lắng nghe khách hàng
-            if ((driverState == DriverState.tripState) && !driverPickingUp) {
-              if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.driverLatLng) < 10e-7) {
-                setState(() => driverPickingUp = true);
-              }
-            }
-          });
-
-          return mapAPIController;
-        },
-
-        builder: (BuildContext context, Widget? child) => Stack(children: [
-      
-          // -------------------- Bản đồ --------------------
-          Positioned(top: 0, bottom: 0, left: 0, right: 0, child: StreamBuilder(
-      
-            stream: _waitForServerObserver(context.read<MapAPIController>()),
+    return ChangeNotifierProvider<HistoryController>(
+        create: (_) => HistoryController(),
+        builder: (BuildContext context, Widget? child) => StreamBuilder<int> (
           
-            builder: (BuildContext context, AsyncSnapshot<int> snapshot) => FlutterMap(
-            mapController: mapController,
-            options: MapOptions(center: context.watch<MapAPIController>().mapAPI.pickupLatLng, zoom: 16.5),
+        stream: preloadDuringTrip(context.read<HistoryController>()),
+      
+        builder: (BuildContext context, AsyncSnapshot<int> snapshot) => SingleChildScrollView(
           
-            nonRotatedChildren: [
-              RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution(
-                    'OpenStreetMap contributors',
-                    onTap: () => launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
+          child: SizedBox(
+            height: duringTrip ? 720 : 930,
+            child: Stack(
+              
+              alignment: Alignment.center,
+              children: [
+      
+                // --------------------- Nền bên ngoài ---------------------
+                Positioned( top: -120, left: 0, right: 0, child: SizedBox(
+                  width: 360,
+                  height: 360,
+                  child: Center(child: circle(Colors.yellow.shade50, 180))
+                )),
+      
+                Positioned( top: -60, left: 0, right: 0, child: SizedBox(
+                  width: 240,
+                  height: 240,
+                  child: Center(child: circle(Colors.white, 120))
+                )),
+      
+                Positioned( top: 230, bottom: -30, left: 0, right: 0, child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade500,
+                    borderRadius: const BorderRadius.all(Radius.circular(30))
                   ),
-                ],
-              ),
-            ],
-          
+                )),
       
-            children: [
-          
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.app',
-              ),
-          
-              PolylineLayer(
-                polylines: [
-                  context.watch<MapAPIController>().mapAPI.s2ePolylines,
-                  if (!driverPickingUp) context.watch<MapAPIController>().mapAPI.d2sPolylines
-                ],
-              ),
-          
-              MarkerLayer(
-                markers: [
-                  if (allowedNavigation)
-                    Marker( point: context.watch<MapAPIController>().mapAPI.driverLatLng, width: 20, height: 20, builder: (context) => const DriverPoint() ),
-                  if ((driverState != DriverState.idleState) && !driverPickingUp)
-                    Marker( point: context.watch<MapAPIController>().mapAPI.pickupLatLng, width: 20, height: 20, builder: (context) => const CustomerPoint() ),
-                  if (driverState != DriverState.idleState)
-                    Marker( point: context.watch<MapAPIController>().mapAPI.dropoffLatLng, width: 20, height: 20, builder: (context) => const DestiPoint() )
-                ],
-              )
-          
-            ],
-          ),
-          )),
+                Positioned( top: 240, bottom: -30, left: 0, right: 0, child: DottedBorder(
+                  borderType: BorderType.RRect,
+                  color: Colors.white,
+                  radius: const Radius.circular(30),
+                  dashPattern: const [20, 20],
+                  strokeWidth: 3,
+                  child: Container()
+                )),
+              
+                Positioned( top: 250, bottom: -30, left: 0, right: 0, child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.all(Radius.circular(30))
+                  ),
+                )),
       
+                const Positioned( top: 30, left: 0, right: 0, child: Center(
+                  child: Text("Xin chào", style: TextStyle( fontSize: 20))
+                )),
       
+                Positioned( top: 60, left: 0, right: 0, child: Center(
+                  child: Text(
+                    widget.userController.account.map["name"],
+                    style: const TextStyle( fontSize: 32, fontWeight: FontWeight.bold),
+                  )
+                )),
+    
+                
       
-      
-          // -------------------- Tên người sử dụng --------------------
-          Positioned(top: 15, left: 15, right: 15, child: Container(
-            width: MediaQuery.of(context).size.width,
-            height: 75,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.all(Radius.circular(9)),
-              boxShadow: [BoxShadow(
-                color: Colors.orange.shade300.withOpacity(0.5),
-                spreadRadius: 0,
-                blurRadius: 3,
-                offset: const Offset(3, 3),
-              )]
+                ...(duringTrip ? duringTripScreen() : notDuringTripScreen(context.watch<HistoryController>()))
+                
+              ],
             ),
-
-            child: Center(child: child)
-          )),
-      
-          Positioned(top: 22, left: 30, child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Xin chào, ", style: TextStyle(fontSize: 20)),
-              Text(widget.userController.account.map["name"], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))
-            ]
-          )),
-      
-          Positioned(top: 22, right: 120, child: Column(children: [
-            const Text("Hoạt động", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Switch(
-              value: active,
-              activeColor: Colors.amber.shade500,
-              onChanged: (bool value) { setState(() => active = value); widget.setNavigatable(!value); },
-            )
-          ])),
-      
-          Positioned(top: 22, right: 30, child: Column(children: [
-            const Text("Theo dõi", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Switch(
-              value: tracking,
-              activeColor: Colors.amber.shade500,
-              onChanged: (bool value) => setState(() => tracking = value),
-            )
-          ])),
-      
-      
-      
-          // -------------------- Thông tin khác --------------------
-      
-            // if (driverState == DriverState.idleState)
-            //   ...[
-            //     Positioned(bottom: 15, left: 15, child: DriverInfoBox(
-            //       width: 200,
-            //       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            //         Text("$moneyEarned VNĐ", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            //         const Text("Tiền thu được", style: TextStyle(fontSize: 18))
-            //       ])
-            //     )),
-      
-            //     Positioned(bottom: 15, right: 15, child: DriverInfoBox(
-            //       width: 135,
-            //       child: Row( children: [
-            //         Text("  $totalWork", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.left),
-            //         const Text(" cước", style: TextStyle(fontSize: 24), textAlign: TextAlign.left)
-            //       ])
-            //     )),
-            //   ]
-      
-            // else if (driverState == DriverState.receiveState)
-            if (driverState == DriverState.receiveState)
-              Positioned(bottom: 15, left: 15, right: 15, child: CustomerInfos(
-                mapAPIController: context.read<MapAPIController>(),
-                onAccepted: () => setState(() => driverState = DriverState.tripState),
-                onRejected: () {
-                  context.read<MapAPIController>().clearAll();
-                  setState(() {
-                    loadReceiveCustomerTimerOnce = false;
-                    driverState = DriverState.idleState;
-                  });
-                }
-              ))
-      
-            else if (driverState == DriverState.tripState)
-              Positioned(bottom: 15, left: 15, right: 15, child: CustomerInfosAccepted(
-                mapAPIController: context.read<MapAPIController>(),
-                onCancelled: () async => finishTrip(context.read<MapAPIController>())
-              ))
-        ]),
-      )
+          ),
+        ),
+      ),
     );
   }
 
 
-
-  Future finishTrip(mapAPIController) async {
-    setState(() {
-      driverPickingUp = false;
-      driverState = DriverState.idleState;
-      loadReceiveCustomerTimerOnce = false;
-    });
-    await mapAPIController.clearAll();
-    noti.showBox("Chuyến đi thành công!", "Cảm ơn bạn đã chở khách hàng đến nơi.");
-  }
-
-
-
-  Stream<int>_waitForServerObserver(mapAPIController) async* {
-
+  Stream<int> preloadDuringTrip(historyController) async* {
     if (!loadOnce) {
       loadOnce = true;
-      developer.log("Pre-loading the map data");
+      final newDuringTrip = await loadDuringTrip();
+      setState(() => duringTrip = newDuringTrip ?? false);
 
-      final currLocation = await location.getLocation();
-      final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
-      if (mounted) {
-        setState(() {
-          mapAPIController.mapAPI.pickupLatLng = newLocation;
-          allowedNavigation = true;
-        });
-      }
+      await historyController.preload();
     }
+  }
 
 
-    if (!loadReceiveCustomerTimerOnce) {
-      loadReceiveCustomerTimerOnce = true;
-      receiveCustomerTimer = Timer.periodic(const Duration(seconds: 5), (timerRunning) async {
-        try {
-          if (mounted) {
-            if (await mapAPIController.updateCustomer()) {
-              mapAPIController.updateS2EPolyline();
-              mapAPIController.updateD2SPolyline();
-              setState(() => driverState = DriverState.receiveState);
-              receiveCustomerTimer?.cancel();
-            }
-          }
-        }
-        catch (e) { throw Exception("Failed code when reading driver, at book_screen.dart. Error type: ${e.toString()}"); }
-      });
-    }
+  
 
 
-    if (!loadSendDriverLatLngTimerOnce && allowedNavigation) {
-      loadSendDriverLatLngTimerOnce = true;
-      sendDriverLatLngTimer = Timer.periodic(const Duration(seconds: 5), (timerRunning) async {
-        try {
-          if (mounted) {
-            mapAPIController.postDriverLatLng();
-          }
-        }
-        catch (e) { throw Exception("Failed code when reading driver, at book_screen.dart. Error type: ${e.toString()}"); }
-      });
-    }
+  List<Widget> notDuringTripScreen(historyController) {
+    return [
+      // --------------------- Chọn xe ---------------------
+      Positioned( top: 130, left: 0, right: 0, child: Column(children: [
+        const Text("Chọn xe", style: TextStyle(fontSize: 24)),
+        const SizedBox(height: 5),
+        Container(height: 1, width: 280, color: Colors.black)
+      ])),
     
+      Positioned( top: 180, child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          CircleCarButton(id: vehicleID, toLeft: true, idChange: () {
+            setState(() => vehicleID-- );
 
-    yield 0;
+          }),
+          const SizedBox(width: 30),
+          CarWidget(text: getVehicleName(vehicleID), type: vehicleID),
+          const SizedBox(width: 30),
+          CircleCarButton(id: vehicleID, toLeft: false, idChange: () => setState(() => vehicleID++ ))
+        ],
+      )),
+  
+    
+      // --------------------- Các nút điểm đã đi gần đây + tạo địa điểm mới ---------------------
+      Positioned( top: 315, left: 0, right: 0, child: Column(children: [
+        const Text("Địa điểm gần đây", style: TextStyle(fontSize: 24)),
+        const SizedBox(height: 5),
+        Container(height: 1, width: 280, color: Colors.black)
+      ])),
+    
+    
+      Positioned( top: 375, left: 30, right: 30, child: Column(
+        children: [
+          ...(() {
+            int listLength = historyController.destinations.length;
+            List<Widget> result = [];
+
+            int count = 0;
+            for (int i = listLength - 1; i >= 0; i--) {
+              count++;
+              if (count >= 5) {
+                break;
+              }
+              else {
+                result.add(DestinationButton(
+                  vehicleID: vehicleID,
+                  destination: historyController.destinations[i],
+                  time: historyController.times[i],
+                  userController: widget.userController,
+                  duringTrip: duringTrip,
+                  saveDuringTrip: (bool value) async => saveDuringTrip(value),
+                  loadDuringTrip: () async => loadDuringTrip(),
+                ));
+                result.add(const SizedBox(height: 15));
+              }
+            }
+
+            return result;
+
+          } ()),
+          
+          SearchDestinationButton(
+            vehicleID: vehicleID,
+            userController: widget.userController,
+            duringTrip: duringTrip,
+            saveDuringTrip: (bool value) async => saveDuringTrip(value),
+            loadDuringTrip: () async => loadDuringTrip(),
+          )
+          
+        ]
+      ))
+    ];
   }
 
+
+  List<Widget> duringTripScreen() {
+    return [
+      Positioned( top: 320, left: 60, right: 60, child: BigButton(
+        label: "Chuyến xe của bạn đang bắt đầu",
+        bold: true,
+        onPressed: () => Navigator.push(
+          context, MaterialPageRoute(
+            builder: (context) => BookScreen(
+              vehicleID: vehicleID,
+              userController: widget.userController,
+              duringTrip: duringTrip,
+              saveDuringTrip: (bool value) async => saveDuringTrip(value),
+              loadDuringTrip: () async => loadDuringTrip(),
+            )
+          )
+        )
+      ))
+    ];
+  }
+
+
+  Future saveDuringTrip(bool value) async {
+    try {
+      SharedPreferences sp = await SharedPreferences.getInstance();
+      await sp.setBool("duringTrip", value);
+      setState(() => duringTrip = value);
+    }
+    catch (e) { developer.log("Unable to save during trip by Shared Preferences."); }
+  }
+
+
+
+  Future loadDuringTrip() async {
+    SharedPreferences sp = await SharedPreferences.getInstance();
+    try {
+      final newDuringTrip = sp.getBool("duringTrip");
+      setState(() => duringTrip = newDuringTrip ?? false);
+    }
+    catch (e) {
+      developer.log("Unable to load during trip by Shared Preferences.");
+    }
+  }
 }
 
 
 
+class CircleCarButton extends StatefulWidget {
+  const CircleCarButton({
+    Key? key,
+    required this.toLeft,
+    required this.id,
+    required this.idChange
+  }) : super(key: key);
+  final bool toLeft;
+  final int id;
+  final VoidCallback idChange;
 
-class CustomerPoint extends StatelessWidget {
-  const CustomerPoint({super.key});
+  @override
+  State<CircleCarButton> createState() => _CircleCarButtonState();
+}
+
+class _CircleCarButtonState extends State<CircleCarButton> {
+  @override
+  Widget build(BuildContext context) {
+
+    if (widget.toLeft) {
+      return Container(
+        width: 45,
+        height: 90,
+        decoration: BoxDecoration(
+          color: widget.id == 1 ? Colors.white : Colors.yellow.shade50,
+          borderRadius: const BorderRadius.all(Radius.circular(9)),
+          border: Border.all(
+            color: Colors.amber.shade300,
+            width: 3
+          )
+        ),
+
+        child: IconButton(
+          onPressed: () => widget.id == 1 ? null : setState(widget.idChange),
+          icon: Icon(
+            Icons.chevron_left,
+            color: widget.id == 1 ? Colors.transparent : Colors.black,
+            size: 24
+          )
+        )
+      );
+    }
+    else {
+      return Container(
+        width: 45,
+        height: 90,
+        decoration: BoxDecoration(
+          color: widget.id == 3 ? Colors.white : Colors.yellow.shade50,
+          borderRadius: const BorderRadius.all(Radius.circular(9)),
+          border: Border.all(
+            color: Colors.amber.shade300,
+            width: 3
+          )
+        ),
+
+        child: IconButton(
+          onPressed: () => widget.id == 3 ? null : setState(widget.idChange),
+          icon: Icon(
+            Icons.chevron_right,
+            color: widget.id == 3 ? Colors.transparent : Colors.black,
+            size: 24
+          )
+        )
+      );
+    }
+  }
+}
+
+
+
+class DestinationButton extends StatelessWidget {
+  const DestinationButton({
+    Key? key,
+    required this.vehicleID,
+    required this.destination,
+    required this.time,
+    required this.userController,
+    required this.duringTrip,
+    required this.saveDuringTrip,
+    required this.loadDuringTrip
+  }) : super(key: key);
+
+  final int vehicleID;
+  final String destination;
+  final String time;
+  final UserController userController;
+  final bool duringTrip;
+  final Function(bool) saveDuringTrip;
+  final VoidCallback loadDuringTrip;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: Colors.amber.shade800,
-        borderRadius: const BorderRadius.all(Radius.circular(15)),
-        border: Border.all(color: Colors.white, width: 3)
-      )
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.all(Radius.circular(15)),
+      child: Container(
+
+        height: 90,
+        color: Colors.amber.shade400,
+        child: InkWell(
+    
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookScreen(
+            vehicleID: vehicleID,
+            destination: destination,
+            userController: userController,
+            duringTrip: duringTrip,
+            saveDuringTrip: (bool value) async => saveDuringTrip(value),
+            loadDuringTrip: () async => loadDuringTrip(),
+          ))),
+    
+          child: Stack(clipBehavior: Clip.antiAliasWithSaveLayer, children: [
+            Positioned(bottom: -20, left: -30, child: circle(Colors.amber.shade300, 45)),
+            Positioned(top: -20, bottom: -20, right: -35, child: circle(Colors.yellow.shade300, 70)),
+            Positioned(top: -15, bottom: -15, right: -30, child: circle(Colors.yellow.shade200, 60)),
+            Positioned(top: 5, bottom: 5, left: 15, right: 105, child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  destination,
+                  style: const TextStyle(fontSize: 16),
+                  textAlign: TextAlign.left,
+                ),
+                Text(
+                  formalDate(time),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.left,
+                )
+              ]),
+            ),
+            Positioned(top: 0, bottom: 0, right: 25, child: Icon(
+              Icons.directions_car, size: 42, color: Colors.amber.shade900
+            ))
+    
+          ]),
+        ),
+    
+      ),
     );
   }
-
 }
 
 
 
-class DestiPoint extends StatelessWidget {
-  const DestiPoint({super.key});
+class SearchDestinationButton extends StatelessWidget {
+  const SearchDestinationButton({
+    Key? key,
+    required this.vehicleID,
+    required this.userController,
+    required this.duringTrip,
+    required this.saveDuringTrip,
+    required this.loadDuringTrip
+  }) : super(key: key);
+
+  final int vehicleID;
+  final UserController userController;
+  final bool duringTrip;
+  final Function(bool) saveDuringTrip;
+  final VoidCallback loadDuringTrip;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: Colors.deepOrange.shade900,
-        borderRadius: const BorderRadius.all(Radius.circular(15)),
-        border: Border.all(color: Colors.white, width: 3)
-      )
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.all(Radius.circular(15)),
+      child: Container(
+
+        height: 90,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.all(Radius.circular(15)),
+          border: Border.all(width: 2, color: Colors.amber.shade400)
+        ),
+        child: InkWell(
+    
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookScreen(
+            vehicleID: vehicleID,
+            userController: userController,
+            duringTrip: duringTrip,
+            saveDuringTrip: (bool value) async => saveDuringTrip(value),
+            loadDuringTrip: () async => loadDuringTrip(),
+          ))),
+    
+          child: Stack(clipBehavior: Clip.antiAliasWithSaveLayer, children: [
+            Positioned(bottom: -20, left: -30, child: circle(Colors.yellow.shade100, 45)),
+            Positioned(top: -20, bottom: -20, right: -35, child: circle(Colors.amber.shade200, 70)),
+            Positioned(top: -15, bottom: -15, right: -30, child: circle(Colors.amber.shade400, 60)),
+            const Positioned(top: 5, bottom: 5, left: 15, right: 90, child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Muốn đến một nơi khác sao?",
+                  style: TextStyle(fontSize: 18),
+                  textAlign: TextAlign.left,
+                ),
+                Text(
+                  "Bấm vào đây để tìm vị trí",
+                  style: TextStyle(fontSize: 14),
+                  textAlign: TextAlign.left,
+                )
+              ]),
+            ),
+            const Positioned(top: 0, bottom: 0, right: 25, child: Icon(
+              Icons.search, size: 42, color: Colors.white,
+            ))
+    
+          ]),
+        ),
+    
+      ),
     );
   }
 }
 
 
 
-class DriverPoint extends StatelessWidget {
-  const DriverPoint({super.key});
+class DuringTripButton extends StatelessWidget {
+  const DuringTripButton({
+    Key? key,
+    required this.vehicleID,
+    required this.userController,
+    required this.onSetTrip,
+    required this.duringTrip,
+    required this.saveDuringTrip,
+    required this.loadDuringTrip
+  }) : super(key: key);
+  final int vehicleID;
+  final UserController userController;
+  final Function(bool) onSetTrip;
+  final bool duringTrip;
+  final Function(bool) saveDuringTrip;
+  final VoidCallback loadDuringTrip;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: Colors.deepOrange.shade300,
-        borderRadius: const BorderRadius.all(Radius.circular(15)),
-        border: Border.all(color: Colors.brown.shade700, width: 3)
-      )
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.all(Radius.circular(15)),
+      child: Container(
+
+        height: 90,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.all(Radius.circular(15)),
+          border: Border.all(width: 2, color: Colors.amber.shade400)
+        ),
+        child: InkWell(
+    
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookScreen(
+            vehicleID: vehicleID,
+            userController: userController,
+            duringTrip: duringTrip,
+            saveDuringTrip: (bool value) async => saveDuringTrip(value),
+            loadDuringTrip: () async => loadDuringTrip(),
+          ))),
+    
+          child: Stack(clipBehavior: Clip.antiAliasWithSaveLayer, children: [
+            Positioned(bottom: -20, left: -30, child: circle(Colors.yellow.shade100, 45)),
+            Positioned(top: -20, bottom: -20, right: -35, child: circle(Colors.amber.shade200, 70)),
+            Positioned(top: -15, bottom: -15, right: -30, child: circle(Colors.amber.shade400, 60)),
+            const Positioned(top: 5, bottom: 5, left: 15, right: 90, child: Text(
+              "Bấm vào đây xem hành trình.",
+              style: TextStyle(fontSize: 14),
+              textAlign: TextAlign.left,
+            )),
+            const Positioned(top: 0, bottom: 0, right: 25, child: Icon(
+              Icons.directions_car, size: 42, color: Colors.white,
+            ))
+    
+          ]),
+        ),
+    
+      ),
     );
   }
 }

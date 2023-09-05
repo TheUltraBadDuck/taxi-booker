@@ -288,16 +288,15 @@ class CarWidget extends StatelessWidget {
 
 
 class PositionBox extends StatelessWidget {
-  const PositionBox({ Key? key, required this.icon, this.height = 55, required this.position }) : super(key: key);
+  const PositionBox({ Key? key, required this.icon, required this.position }) : super(key: key);
   final Icon icon;
-  final double height;
   final String position;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.only(left: 15, right: 15),
-      height: height,
+      height: 55,
       decoration: BoxDecoration(
         color: Colors.yellow.shade50,
         borderRadius: const BorderRadius.all(Radius.circular(9)),
@@ -311,36 +310,13 @@ class PositionBox extends StatelessWidget {
         const SizedBox(width: 15),
         SizedBox(
           width: 250,
-          height: height,
+          height: 55,
           child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Align(
             alignment: Alignment.centerLeft,
             child: Text(position, style: const TextStyle(fontSize: 16))
           ))
         )
       ])
-    );
-  }
-}
-
-
-
-class PriceButton extends StatelessWidget {
-  const PriceButton({ super.key, required this.text });
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 35,
-      decoration: BoxDecoration(
-        color: Colors.yellow.shade50,
-        borderRadius: const BorderRadius.all(Radius.circular(9)),
-        border: Border.all(
-          color: Colors.amber.shade300,
-          width: 3
-        )
-      ),
-      child: Center(child: Text(text, style: const TextStyle(fontSize: 18)))
     );
   }
 }

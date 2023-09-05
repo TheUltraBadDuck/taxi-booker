@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '/view/decoration.dart';
 
 
-
 typedef CustomerCallback = Function(String val_1, String val_2, String val_3);
-
 
 
 
@@ -37,30 +35,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: SafeArea( child: Stack( children: [
 
         // --------------------- Trang trí ---------------------
-        Positioned(top: -120, left: 120, right: 120, child: circle(Colors.amber.shade600, 120)),
-        Positioned(top: 30, left: 90, right: 90, child: Column(
+        Positioned(top: -60, right: -60, child: circle(Colors.amber.shade600, 90)),
+        Positioned(top: 30, left: 90, right: 45, child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text( "Xin chào, tài xế!", textAlign: TextAlign.center,
+            Text( "Chào bạn!", textAlign: TextAlign.end,
               style: TextStyle(fontSize: 28, color: Colors.brown.shade900, fontWeight: FontWeight.bold)),
 
-            Text( "Hãy đăng ký để bắt đầu.", textAlign: TextAlign.center,
+            Text( "Hãy đăng ký để bắt đầu.", textAlign: TextAlign.end,
               style: TextStyle(fontSize: 24, color: Colors.brown.shade900, fontWeight: FontWeight.bold)),
           ]
         )),
 
-        Positioned(top: 150, left: -45, right: -30, child: Container(
+        Positioned(top: 120, left: -235, right: 30, child: Container(
           width: 710, height: 760,
           decoration: BoxDecoration(
             color: Colors.yellow.shade600,
-            borderRadius: const BorderRadius.all(Radius.circular(180))
+            borderRadius: const BorderRadius.all(Radius.circular(300))
           ),
         )),
 
-        Positioned(top: 160, left: -35, right: -20, child: Container(
-          width: 700, height: 600,
+        Positioned(top: 150, left: -240, right: 40, child: Container(
+          width: 700, height: 700,
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.all(Radius.circular(180))
+            borderRadius: BorderRadius.all(Radius.circular(300))
           ),
         )),
 
@@ -131,7 +130,6 @@ String getWarningText(String username, String phoneNumber, String password, Stri
 }
 
 
-
 bool hasUsername(String username) {
   return username.isNotEmpty;
 }
@@ -158,5 +156,3 @@ bool validPassword(String password) {
 bool confirmPassword(String password, String passswordConfirm) {
   return password == passswordConfirm;
 }
-
-

@@ -20,17 +20,18 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
+
+
 class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
 
     return const MaterialApp(
-      title: "Taxi App FOR DRIVER",
+      title: "Taxi App For Customer",
       home: NavigationChange()
     );
   }
 }
-
 
 

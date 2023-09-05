@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "575884884246",
+    "project_id": "fluttre-e46a4",
+    "storage_bucket": "fluttre-e46a4.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:575884884246:android:6766c57225445f4235f837",
+        "android_client_info": {
+          "package_name": "com.example.flutter_app_texting"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "575884884246-do7ai7p8dqvegt1n9rigb34absfrk2ib.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfGIYWTGI0_H8Oys744MnfksvaQvlEKG0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "575884884246-do7ai7p8dqvegt1n9rigb34absfrk2ib.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "575884884246-if1jbtao507dv13ognrm4vkcalbmu0lh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.flutterAppTexting"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
