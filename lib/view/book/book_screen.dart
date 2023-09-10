@@ -9,21 +9,34 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:location_picker_flutter_map/location_picker_flutter_map.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:location/location.dart';
 
-import '/view_model/user_controller.dart';
-import '/view_model/map_controller.dart';
-import '/view_model/general_controller.dart';
+import '/view_model/account_controller.dart';
+import '/view_model/map_api_controller.dart';
 
-import '/view/book/after_dest.dart';
+import 'after_search.dart';
 import '/view/book/after_taxi.dart';
-import '/view/book/before_dest.dart';
+import 'before_search.dart';
 import '/view/book/during_taxi.dart';
 import '/view/book/schedule_taxi.dart';
+import '/view/decoration.dart';
 
 import '/general/function.dart';
-import '/notification.dart';
+import '/service/notification.dart';
+
+
+
+enum BookState {
+  beforeSearch,         // Chưa đặt địa chỉ cần đến: Yêu cầu sệt
+  afterSearch,          // Hiện thông tin đường đi giữa điểm bắt đầu và điểm kết thúc, giá tiền, quãng đường và thời gian
+  beforeTaxiArrival,    // Chờ tài xế phản hồi
+  duringTaxiArrival,    // Chờ tài xế trước và sau khi chở mình đi đến nơi cần đến
+  afterTaxiArrival,     // Kết thúc
+  scheduleTaxiArrival,  // Dành cho khách hàng VIP: đặt cuộc hẹn
+  error
+}
 
 
 
@@ -32,47 +45,40 @@ class BookScreen extends StatefulWidget {
     Key? key,
     required this.vehicleID,
     this.destination = "",
-    required this.userController,
+    required this.accountController,
     required this.duringTrip,
-    required this.saveDuringTrip,
-    required this.loadDuringTrip
+    required this.saveDuringTrip
   }) : super(key: key);
 
   final int vehicleID;
   final String destination;
-  final UserController userController;
+  final AccountController accountController;
   final bool duringTrip;
   final Function(bool) saveDuringTrip;
-  final VoidCallback loadDuringTrip;
 
   @override
   State<BookScreen> createState() => _BookScreenState();
 }
 
 
+
 class _BookScreenState extends State<BookScreen> {
 
   // Thông tin người dùng (vị trí hiện tại, vị trí cần đến, khoảng cách, thời gian)
   int vehicleID = 0;
-  // Các trạng thái
-  BookStateController bookStateController = BookStateController();
+  BookState bookState = BookState.beforeSearch;
 
   // Thông tin liên quan để hiển thị trên bản đồ
   bool allowedNavigation = false;
   Location location = Location();
   MapController mapController = MapController();
 
-  Timer? driverFoundTimer;
-  Timer? driverPickedUpTimer;
-  
-  bool loadDriverFoundTimerOnce = false;
-  bool loadDriverPickedUpTimerOnce = false;
+
 
   bool goodHour = true;
   bool goodWeather = true;
 
   // Thông tin tài xế
-  bool foundDriver = false;
   bool driverPickingUp = false;
   bool loadTripOnce = false;
 
@@ -80,165 +86,6 @@ class _BookScreenState extends State<BookScreen> {
 
   late var listenLocation;
 
-
-
-  Stream<int> _readDriver(mapAPIController) async* {
-    
-    if (!loadTripOnce) {
-
-      loadTripOnce = true;
-
-      if (widget.duringTrip) {
-        developer.log("Pre-loading trip");
-        vehicleID = widget.vehicleID;
-
-        final newBookState = await bookStateController.load();
-        
-        switch (newBookState) {
-
-          case BookState.scheduleTaxiArrival:
-            developer.log(" > Scheduled taxi arrival.");
-
-            final newBookingTime = await mapAPIController.loadBookingTime();
-            final timeDist = newBookingTime.compareTo(DateTime.now());
-
-
-            if (timeDist > 0) {   // Chưa đến thời điểm cần đặt
-              bookStateController.value = newBookState;
-            }
-            else {                // Đã đến hoặc đã qua thời điểm cần đặt
-              await mapAPIController.loadCustomer();
-              setState(() {
-                bookStateController.value = BookState.beforeTaxiArrival;
-                mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
-              });
-              allowedNavigation = true;
-            }
-            break;
-
-
-          case BookState.beforeTaxiArrival:
-            developer.log(" > Before taxi arrival.");
-            await mapAPIController.loadCustomer();
-            setState(() {
-              bookStateController.value = newBookState;
-              mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
-            });
-            allowedNavigation = true;
-            break;
-
-          
-          case BookState.duringTaxiArrival:
-            developer.log(" > During taxi arrival.");
-            await mapAPIController.loadCustomer();
-            await mapAPIController.loadDriver();
-            setState(() {
-              bookStateController.value = newBookState;
-              mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
-            });
-            allowedNavigation = true;
-            break;
-          
-
-          default:
-            developer.log(" > Invalid taxi arrival.");
-            await mapAPIController.clearAll();
-            await widget.saveDuringTrip(false);
-            setState(() {
-              bookStateController.value = BookState.beforeSearch;
-            });
-            break;
-        }
-      }
-
-
-      else {
-        developer.log("Pre-loading dropoff data if it exists");
-
-        if (vehicleID == 0) {
-          vehicleID = widget.vehicleID;
-        }
-
-        // Cập nhật vị trí cần đến
-        if (widget.destination.isNotEmpty) {
-          try {
-            final currLocation = await location.getLocation();
-            final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
-            if (mounted) {
-              await mapAPIController.updatePickupLatLng(newLocation);
-              await mapAPIController.updatePickupAddr();
-              if (await mapAPIController.updateDropoffbyText(widget.destination)) {
-                await mapAPIController.updateS2EPolyline(vehicleID: vehicleID);
-              }
-              setState(() {
-                mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
-                bookStateController.value = BookState.afterSearch;
-                allowedNavigation = true;
-              });
-            }
-          }
-          catch (e) {
-            developer.log("ERRRORRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR. Error type: $e");
-          }
-        }
-      }
-    }
-
-    
-    switch (bookStateController.value) {
-
-      // Chờ tài xế chấp nhận cước đi
-      case BookState.beforeTaxiArrival:
-        if (!loadDriverFoundTimerOnce) {
-          loadDriverFoundTimerOnce = true;
-          driverFoundTimer = Timer.periodic(const Duration(seconds: 5), (timerRunning) async {
-            try {
-              if (mounted) {
-                if (await mapAPIController.updateReadDriver()) {
-                  setState(() => bookStateController.value = BookState.duringTaxiArrival);
-                  await mapAPIController.updateD2SPolyline();
-                  await mapAPIController.saveDriver();
-                  await bookStateController.save();
-                  driverFoundTimer?.cancel();
-                }
-              }
-            }
-            catch (e) { throw Exception("Failed code when reading driver, at book_screen.dart. Error type: ${e.toString()}"); }
-          });
-        }
-        break;
-      
-        // Chờ tài xế đến đón
-        case BookState.duringTaxiArrival:
-          if (!loadDriverPickedUpTimerOnce) {
-            loadDriverPickedUpTimerOnce = true;
-            driverPickedUpTimer = Timer.periodic(const Duration(seconds: 5), (timerRunning) async {
-              try {
-                if (!driverPickingUp) {
-                  if (mounted) {
-                    await mapAPIController.updateDriverLatLng();
-                  }
-                }
-                else {
-                  driverPickedUpTimer?.cancel();
-                }
-              }
-              catch (e) { throw Exception("Failed code when updating paths, at book_screen.dart. Error type: ${e.toString()}"); }
-            });
-          }
-          break;
-        
-        // Chờ đến hẹn
-        default:
-          break;
-    }
-
-
-
-    
-
-    yield 0;
-  }
 
 
   // --------------------  Các hàm chính -------------------- 
@@ -263,6 +110,8 @@ class _BookScreenState extends State<BookScreen> {
   void dispose() {
     super.dispose();
     listenLocation.cancel();
+    patchCustomerTimer?.cancel();
+    driverFoundTimer?.cancel();
   }
   
 
@@ -283,12 +132,6 @@ class _BookScreenState extends State<BookScreen> {
         elevation: 0,
         leading: IconButton(icon: const Icon(Icons.chevron_left), onPressed: () {
           Navigator.pop(context);
-          // if (bookStateController.value == BookState.duringTaxiArrival) {
-          //   warningModal(context, "Hãy đi đến địa điểm cần đến để có thể quay lại.");
-          // }
-          // else {
-          //   Navigator.pop(context);
-          // }
         })
       ),
 
@@ -304,33 +147,15 @@ class _BookScreenState extends State<BookScreen> {
             final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
 
             if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, newLocation) > 10e-7) {
-
               if (mounted) {
-                setState(() {
-                  mapAPIController.mapAPI.pickupLatLng = newLocation;
-                  allowedNavigation = true;
-                });
-              }
-
-              // Cập nhật nếu đến đích
-              if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.dropoffLatLng) < 10e-7) {
-                bookStateController.value = BookState.afterTaxiArrival;
-              }
-            }
-
-
-            // Lắng nghe tài xế
-            if ((bookStateController.value == BookState.duringTaxiArrival) && !driverPickingUp) {
-              if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.driverLatLng) < 10e-7) {
-                setState(() => driverPickingUp = true);
-                noti.showBox("Taxi đã đến", "Hãy bắt đầu hành trình đi đến nơi cần đến nào!");
+                setState(() { mapAPIController.mapAPI.pickupLatLng = newLocation;
+                              allowedNavigation = true; });
               }
             }
           });
 
           return mapAPIController;
         },
-
 
 
         builder: (BuildContext context, Widget? child) => Stack(children: [
@@ -342,34 +167,26 @@ class _BookScreenState extends State<BookScreen> {
             builder: (BuildContext context, AsyncSnapshot<int> snapshot) => FlutterMap(
         
               mapController: mapController,
-        
-              options: MapOptions(
-                center: context.watch<MapAPIController>().mapAPI.pickupLatLng,
-                zoom: 16.5
-              ),
+              options: MapOptions(center: context.watch<MapAPIController>().mapAPI.pickupLatLng, zoom: 16.5),
         
               nonRotatedChildren: [
                 RichAttributionWidget(
                   attributions: [
-                    TextSourceAttribution(
-                      'OpenStreetMap contributors',
-                      onTap: () => launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
-                    ),
+                    TextSourceAttribution('OpenStreetMap contributors',
+                                          onTap: () => launchUrl(Uri.parse('https://openstreetmap.org/copyright')))
                   ],
                 ),
               ],
         
               children: [
         
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.app',
-                ),
+                TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.example.app'),
         
                 PolylineLayer(
                   polylines: [
                     context.watch<MapAPIController>().mapAPI.s2ePolylines,
-                    if (bookStateController.value == BookState.duringTaxiArrival && !driverPickingUp) context.watch<MapAPIController>().mapAPI.d2sPolylines
+                    if (bookState == BookState.duringTaxiArrival && !driverPickingUp) context.watch<MapAPIController>().mapAPI.d2sPolylines
                   ],
                 ),
         
@@ -377,9 +194,9 @@ class _BookScreenState extends State<BookScreen> {
                   markers: [
                     if (allowedNavigation)
                       Marker( point: context.watch<MapAPIController>().mapAPI.pickupLatLng, width: 20, height: 20, builder: (context) => const CustomerPoint() ),
-                    if (bookStateController.value != BookState.beforeSearch)
+                    if (bookState != BookState.beforeSearch)
                       Marker( point: context.watch<MapAPIController>().mapAPI.dropoffLatLng, width: 20, height: 20, builder: (context) => const DestiPoint() ),
-                    if ((bookStateController.value == BookState.duringTaxiArrival) && !driverPickingUp)
+                    if ((bookState == BookState.duringTaxiArrival) && !driverPickingUp)
                       Marker( point: context.watch<MapAPIController>().mapAPI.driverLatLng, width: 20, height: 20,  builder: (context) => const DriverPoint() )
                   ],
                 )
@@ -390,54 +207,43 @@ class _BookScreenState extends State<BookScreen> {
         
           Positioned(top: 0, bottom: 0, left: 0, right: 0, child: (() {
             
-            switch(bookStateController.value) {
+            switch (bookState) {
 
               case BookState.beforeSearch:
-                return BeforeDestination(
-                  userController: widget.userController,
+                return BeforeSearchBox(
+                  accountController: widget.accountController,
                   vehicleID: vehicleID,
                   onSubmitted: (PickedData pickedData) async {
-                    if (await widget.userController.checkTokens()) {
-                      if (context.mounted) {
-                        context.read<MapAPIController>().updatePickupAddr();
-                        context.read<MapAPIController>().updateDropoffByPickedData(pickedData);
-                        context.read<MapAPIController>().updateS2EPolyline(vehicleID: vehicleID);
-                      }
-                      setState(() {
-                        mapController.move(context.read<MapAPIController>().mapAPI.pickupLatLng, 16);
-                        bookStateController.value = BookState.afterSearch;
-                      });
-                    }
+                    context.read<MapAPIController>().updateDropoffAddr(pickedData.address);
+                    context.read<MapAPIController>().updateDropoffLatLng(LatLng(pickedData.latLong.latitude, pickedData.latLong.longitude));
+                    context.read<MapAPIController>().updatePickupAddr(
+                          await context.read<MapAPIController>().getAddr(context.read<MapAPIController>().mapAPI.pickupLatLng));
+                    
+                    if (context.mounted) await context.read<MapAPIController>().updateS2EPolyline(vehicleID: vehicleID);
+                    await saveBookState(BookState.afterSearch);
+                    setState(() => mapController.move(context.read<MapAPIController>().mapAPI.pickupLatLng, 16));
                   }
                 );
 
               case BookState.afterSearch:
-                return AfterDestination(
-                  userController: widget.userController,
+                return AfterSearchBox(
+                  accountController: widget.accountController,
                   vehicleID: vehicleID,
-                  pickupAddr: context.watch<MapAPIController>().mapAPI.pickupAddr,
-                  dropoffAddr: context.watch<MapAPIController>().mapAPI.dropoffAddr,
+                  mapAPIController: context.watch<MapAPIController>(),
 
-                  price: context.watch<MapAPIController>().mapAPI.price,
-                  distance: context.watch<MapAPIController>().mapAPI.distance,
-                  duration: context.watch<MapAPIController>().mapAPI.duration,
-
-                  onPressCancel: () => setState(() => bookStateController.value = BookState.beforeSearch),
+                  onPressCancel: () async => await saveBookState(BookState.beforeSearch),
+                  
                   onPressOK: (bool selectingDate) async {
-                    if (await widget.userController.checkTokens()) {
-                      if (selectingDate) {
-                        if (context.mounted) noti.showBoxWithTimes("Đã đến giờ khởi hành!", "Hãy chuẩn bị mọi thứ trước khi đi.", context.read<MapAPIController>().mapAPI.bookingTime);
-                        if (context.mounted) await context.read<MapAPIController>().saveCustomer();
-                        setState(() => bookStateController.value = BookState.scheduleTaxiArrival);
-                      }
-                      else {
-                        if (context.mounted) await context.read<MapAPIController>().postTrip(widget.userController.account.map["id"], "0123456789", widget.vehicleID);
-                        if (context.mounted) await context.read<MapAPIController>().saveCustomer();
-                        setState(() => bookStateController.value = BookState.beforeTaxiArrival);
-                      }
-                      await bookStateController.save();
-                      widget.saveDuringTrip(true);
+                    if (selectingDate) {
+                      noti.showBoxWithTimes("Đã đến giờ khởi hành!", "Hãy chuẩn bị mọi thứ trước khi đi.", context.read<MapAPIController>().mapAPI.bookingTime);
+                      await saveBookState(BookState.scheduleTaxiArrival);
                     }
+                    else {
+                      if (context.mounted) await context.read<MapAPIController>().postBookingRequest(widget.accountController.account.map["phone"], widget.vehicleID);
+                      await saveBookState(BookState.beforeTaxiArrival);
+                    }
+                    if (context.mounted) await context.read<MapAPIController>().saveCustomer();
+                    await widget.saveDuringTrip(true);
                   },
 
                   onChangeVehicleLeft: () => setState( () {
@@ -453,52 +259,44 @@ class _BookScreenState extends State<BookScreen> {
                     );
                   }),
 
-                  onChangeTimeForVip: (int hour, int minute) {
-                    context.read<MapAPIController>().updateDatetime(hour, minute);
-                  }
+                  onChangeTimeForVip: (int hour, int minute) => context.read<MapAPIController>().updateDatetime(hour, minute)
                 );
 
               case BookState.beforeTaxiArrival:
                 return BeforeTaxiTrip(
-                  userController: widget.userController,
+                  accountController: widget.accountController,
                   vehicleID: vehicleID,
-                  pickupAddr: context.watch<MapAPIController>().mapAPI.pickupAddr,
-                  dropoffAddr: context.watch<MapAPIController>().mapAPI.dropoffAddr,
-                  distance: context.watch<MapAPIController>().mapAPI.distance,
-                  duration: context.watch<MapAPIController>().mapAPI.duration
+                  mapAPIController: context.watch<MapAPIController>()
                 );
 
               case BookState.duringTaxiArrival:
                 return DuringTaxiTrip(
-                  userController: widget.userController,
+                  accountController: widget.accountController,
                   vehicleID: vehicleID,
-                  pickupAddr: context.watch<MapAPIController>().mapAPI.pickupAddr,
-                  dropoffAddr: context.watch<MapAPIController>().mapAPI.dropoffAddr,
-                  distance: context.watch<MapAPIController>().mapAPI.distance,
-                  duration: context.watch<MapAPIController>().mapAPI.duration,
-                  driverName: context.watch<MapAPIController>().mapAPI.driverName,
-                  driverPhonenumber: context.watch<MapAPIController>().mapAPI.driverPhonenumber
+                  mapAPIController: context.watch<MapAPIController>()
                 );
 
               case BookState.afterTaxiArrival:
                 return AfterTaxiTrip(
-                  userController: widget.userController,
-                  onReturn: () async {
-                    if (await widget.userController.checkTokens()) {
-                      widget.saveDuringTrip(false);
-                      if (context.mounted) await context.read<MapAPIController>().clearAll();
-                      if (context.mounted) Navigator.pop(context);
-                    }
+                  accountController: widget.accountController,
+                  onRated:   (int star) async {
+                    await widget.saveDuringTrip(false);
+                    if (context.mounted) await context.read<MapAPIController>().rateDriver(star);
+                    if (context.mounted) await context.read<MapAPIController>().clearAll();
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  onIgnored: () async {
+                    await widget.saveDuringTrip(false);
+                    if (context.mounted) await context.read<MapAPIController>().clearAll();
+                    if (context.mounted) Navigator.pop(context);
                   }
                 );
 
               case BookState.scheduleTaxiArrival:
                 return ScheduleTaxiTrip(
-                  userController: widget.userController,
+                  accountController: widget.accountController,
                   onReturn: () async {
-                    if (await widget.userController.checkTokens()) {
-                      if (context.mounted) Navigator.pop(context);
-                    }
+                    if (context.mounted) Navigator.pop(context);
                   }
                 );
 
@@ -510,60 +308,162 @@ class _BookScreenState extends State<BookScreen> {
       )
     );
   }
-}
 
 
 
-class CustomerPoint extends StatelessWidget {
-  const CustomerPoint({super.key});
+  Timer? patchCustomerTimer;
+  Timer? driverFoundTimer;
+  
+  bool loadPatchCustomerOnce = false;
+  bool loadDriverFoundTimerOnce = false;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: Colors.amber.shade800,
-        borderRadius: const BorderRadius.all(Radius.circular(15)),
-        border: Border.all(color: Colors.white, width: 3)
-      )
-    );
+
+  Stream<int> _readDriver(mapAPIController) async* {
+    
+    if (!loadTripOnce) {
+      loadTripOnce = true;
+
+      if (widget.duringTrip) {
+        developer.log("Pre-loading trip");
+        vehicleID = widget.vehicleID;
+
+        await saveBookState(BookState.beforeTaxiArrival);
+
+        bookState = BookState.beforeTaxiArrival;
+
+        switch (bookState) {
+
+          case BookState.scheduleTaxiArrival:
+            developer.log(" > Scheduled taxi arrival.");
+
+            final newBookingTime = await mapAPIController.loadBookingTime();
+            final timeDist = newBookingTime.compareTo(DateTime.now());
+
+            if (timeDist < 0) {                // Đã đến hoặc đã qua thời điểm cần đặt
+              await mapAPIController.loadCustomer();
+              await saveBookState(BookState.beforeTaxiArrival);
+              setState(() {
+                allowedNavigation = true;
+                mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
+              });
+            }
+            break;
+
+
+          case BookState.beforeTaxiArrival:
+            developer.log(" > Before taxi arrival.");
+            await mapAPIController.loadCustomer();
+            setState(() {
+              allowedNavigation = true;
+              mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
+            });
+            break;
+
+          
+          case BookState.duringTaxiArrival:
+            developer.log(" > During taxi arrival.");
+            await mapAPIController.loadCustomer();
+            await mapAPIController.loadDriver();
+            setState(() {
+              allowedNavigation = true;
+              mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
+            });
+            break;
+          
+
+          default:
+            developer.log(" > Invalid taxi arrival.");
+            await mapAPIController.clearAll();
+            await widget.saveDuringTrip(false);
+            await saveBookState(BookState.beforeSearch);
+            break;
+        }
+      }
+      else {
+        developer.log("Pre-loading dropoff data if it exists");
+
+        if (vehicleID == 0) {
+          vehicleID = widget.vehicleID;
+        }
+
+        // Cập nhật vị trí cần đến
+        if (widget.destination.isNotEmpty) {
+          try {
+            final currLocation = await location.getLocation();
+            final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
+            if (mounted) {
+              mapAPIController.updatePickupLatLng(newLocation);
+              await mapAPIController.patchPickupLatLng();
+              await mapAPIController.updatePickupAddr(widget.destination);
+              if (await mapAPIController.searchDropoff(widget.destination)) {
+                await mapAPIController.updateS2EPolyline(vehicleID: vehicleID);
+              }
+              await saveBookState(BookState.afterSearch);
+              setState(() { mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
+                            allowedNavigation = true; });
+            }
+          }
+          catch (e) {
+            developer.log("ERRRORRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR. Error type: $e");
+          }
+        }
+      }
+    }
+
+
+
+    if (!loadPatchCustomerOnce) {
+      loadPatchCustomerOnce = true;
+      // Lắng nghe định vị GPS
+      patchCustomerTimer = Timer.periodic(const Duration(seconds: 10), (timerRunning) async {
+        await mapAPIController.patchPickupLatLng();
+      });
+    }
+
+
+    // Chờ tài xế chấp nhận cước đi
+    if (!loadDriverFoundTimerOnce && (bookState == BookState.beforeTaxiArrival)) {
+      loadDriverFoundTimerOnce = true;
+      driverFoundTimer = Timer.periodic(const Duration(seconds: 10), (timerRunning) async {
+        if (mounted) {
+          if (await mapAPIController.getDriverLocation()) {
+            if (bookState == BookState.beforeTaxiArrival) {
+              await saveBookState(BookState.duringTaxiArrival);
+            }
+            else if (bookState == BookState.duringTaxiArrival) {
+              // Cập nhật nếu gặp được tài xế
+              if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.driverLatLng) < 10e-7 && !driverPickingUp) {
+                setState(() => driverPickingUp = true);
+                noti.showBox("Taxi đã đến", "Hãy bắt đầu hành trình đi đến nơi cần đến nào!");
+              }
+
+              // Cập nhật nếu đến đích
+              if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.dropoffLatLng) < 10e-7) {
+                await saveBookState(BookState.afterTaxiArrival);
+              }
+            }
+          }
+        }
+      });
+    }
+
+    yield 0;
   }
 
-}
 
 
 
-class DestiPoint extends StatelessWidget {
-  const DestiPoint({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: Colors.deepOrange.shade900,
-        borderRadius: const BorderRadius.all(Radius.circular(15)),
-        border: Border.all(color: Colors.white, width: 3)
-      )
-    );
+  Future<void> saveBookState(BookState value) async {
+    developer.log("[Save bookstate] Save $value");
+    SharedPreferences sp = await SharedPreferences.getInstance();
+    await sp.setInt("bookState", bookState.index);
+    setState(() => bookState = value);
   }
-}
 
-
-
-class DriverPoint extends StatelessWidget {
-  const DriverPoint({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: Colors.deepOrange.shade300,
-        borderRadius: const BorderRadius.all(Radius.circular(15)),
-        border: Border.all(color: Colors.brown.shade700, width: 3)
-      )
-    );
+  Future<void> loadBookState() async {
+    SharedPreferences sp = await SharedPreferences.getInstance();
+    setState(() => bookState = BookState.values[sp.getInt("bookState")!]);
+    developer.log("[Load bookstate] Load $bookState");
   }
 }
 

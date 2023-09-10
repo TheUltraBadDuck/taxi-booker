@@ -2,25 +2,57 @@ import "dart:convert";
 import "dart:developer" as developer;
 
 import "package:flutter/material.dart";
+
 // import "package:google_maps_flutter/google_maps_flutter.dart";
 import "package:http/http.dart" as http;
-
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import "package:location_picker_flutter_map/location_picker_flutter_map.dart";
 
-import "/model/map_api.dart";
 import '/general/constant.dart';
 import "/general/function.dart";
 
+import '/data/account_reader.dart';
 
 
-class MapAPIReader {
+class MapAPIReader extends AccountReader {
+
+  // * Gửi toạ độ
+  // *
+  // * RETURN: <bool>
+  // *
+  // Future<bool> setPickupLatLong(LatLng value, String token, { bool callExpired = false }) async {
+  //   developer.log("Update latitude and longitude of MapAPIReader");
+  //   final response = await http.patch(Uri.parse(Customer.setLatLong),
+  //                                     headers: { "Content-Type": "application/json; charset=UTF-8", "authentication": token },
+  //                                     body: { "latitude": value.latitude, "longitude": value.longitude });
+    
+  //   switch (response.statusCode) {
+  //     case 200: case 201:
+  //       return Future.value(true);
+      
+  //     case 401:
+  //       if (!callExpired) {
+  //         await AccountReader().getNewTokens(token);
+  //         return await setPickupLatLong(value, await TokenSaver().loadRefreshToken(), callExpired: true);
+  //       }
+  //       else {
+  //         developer.log("Failed HTTP when update at setPickupLatLong(): ${response.statusCode}");
+  //         return Future.value(false);
+  //       }
+      
+  //     default:
+  //       developer.log("Failed HTTP when update at setPickupLatLong(): ${response.statusCode}");
+  //       return Future.value(false);
+  //   }
+  // }
+
+
 
   // * -------------------- Cập nhật vị trí địa chỉ bắt đầu --------------------
   // *
   // * RETURN: {
-  // *   status: true,
+  // *   status: <bool>
   // *   body: <String>
   // * }
   // *
@@ -50,7 +82,7 @@ class MapAPIReader {
   // * -------------------- Cập nhật vị trí toạ độ cần đến --------------------
   // *
   // * RETURN: {
-  // *   status: true,
+  // *   status: <bool>
   // *   body: <PickedData> { LatLong, String, Map }
   // * }
   // *
@@ -84,7 +116,7 @@ class MapAPIReader {
   // * -------------------- Tìm đường giữa điểm bắt đầu và kết thúc --------------------
   // *
   // * RETURN: {
-  // *   status: true,
+  // *   status: <bool>
   // *   polyline: <Polyline>,
   // *   distance: <int>,
   // *   duration: <int>
@@ -147,7 +179,7 @@ class MapAPIReader {
   // * -------------------- Lấy trạng thái thời tiết hiện tại -------------------- 
   // *
   // * RETURN: {
-  // *   status: true,
+  // *   status: <bool>
   // *   body: <String>
   // * }
   // *
@@ -172,105 +204,5 @@ class MapAPIReader {
       return result;
     }
     catch (e) { throw Exception("Failed code when getting weather, at map_api_reader.dart. Error type: ${e.toString()}"); }
-  }
-
-
-
-
-  // * -------------------- Lấy tài xế gần nhất -------------------- 
-  // *
-  // * RETURN: {
-  // *   status: true,
-  // *   username: <String>,
-  // *   phonenumber: <String>,
-  // *   latlng: <LatLng>
-  // * }
-  // *
-  Future< Map<String, dynamic> > getNearestDriver(LatLng currPos) async {
-    // Đọc tất cả user
-    final response = await http.get(Uri.parse(users));
-
-    Map<String, dynamic> result = { "status": false };
-
-    // Đọc được url
-    if (response.statusCode == 200) {
-      
-      final driverList = json.decode(utf8.decode(response.bodyBytes));
-
-      double minDistanceSquare = 32767.0;
-      for (int i = 0; i < driverList.length; i++) {
-        // Nếu tài xế hoạt động
-        // Tìm các tài xế gần vị trí người dùng
-        if (driverList[i]["enabled"]) {
-          final checkDistanceSquare = getDescrateDistanceSquare(currPos, const LatLng(10.768408, 106.684503));
-          if (checkDistanceSquare < minDistanceSquare) {
-            minDistanceSquare = checkDistanceSquare;
-            result["username"] = driverList[i]["name"];
-            result["phonenumber"] = driverList[i]["email"];
-            result["latlng"] = const LatLng(10.768408, 106.684503);
-            result["status"] = true; 
-          }
-        }
-      }
-    }
-
-    else {
-      developer.log("Failed HTTP when getting nearest driver: ${response.statusCode}");
-    }
-    return result;
-  }
-
-
-
-  // * Lấy toạ độ tài xế
-  Future<LatLng> getDriverLatLng(int userId) async {
-
-    userId = 1;
-
-    developer.log("Calling API getDriverLatLng($userId)");
-    final response = await http.get(Uri.parse("$users/$userId"));
-
-    if (response.statusCode == 200) {
-      // return json.decode(utf8.decode(response.bodyBytes))["latlng"];
-      //return const LatLng(10.768408, 106.684503);
-      //return const LatLng(10.765654, 106.681534);
-      return const LatLng(10.7663, 106.6791);
-      //return const LatLng(10.7609, 106.6745);
-    }
-
-    else {
-      developer.log("Failed HTTP when getting profile: ${response.statusCode}");
-      return const LatLng(0.0, 0.0);
-    }
-  }
-
-
-
-  // * Gửi lên HTTPS
-  Future postTrip(int userId, String phonenumber, int vehicleID, MapAPI mapAPI) async {
-
-    Map<String, dynamic> result = {
-      "customer_id": userId,
-      "phone": phonenumber,
-      "booking_time": mapAPI.bookingTime.toString(),
-      "car_type": vehicleID,
-
-      "pickup_address": mapAPI.pickupAddr,
-      "dropoff_address": mapAPI.dropoffAddr,
-
-      "pickup_latitude": mapAPI.pickupLatLng.latitude,
-      "pickup_longitude": mapAPI.pickupLatLng.longitude,
-      "dropoff_latitude": mapAPI.dropoffLatLng.latitude,
-      "dropoff_longitude": mapAPI.dropoffLatLng.longitude,
-
-      "price": mapAPI.price,
-      "distance": mapAPI.distance,
-      "duration": mapAPI.duration,
-
-      "driver_id": null,
-      "status": null
-    };
-
-    developer.log("Trying to sent data: $result");
   }
 }

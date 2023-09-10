@@ -29,7 +29,7 @@ class MapAPI {
   Polyline s2ePolylines = Polyline(points: []);
   Polyline d2sPolylines = Polyline(points: []);
 
-  int driverId = -1;
+  String driverId = "";
   String driverName = "";
   String driverPhonenumber = "";
 
@@ -38,32 +38,27 @@ class MapAPI {
   // * Tạm lưu
   Future saveCustomer() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
-    try {
-      await sp.setString("map_API_pickupAddress",  pickupAddr);
-      await sp.setDouble("map_API_pickupLat",      pickupLatLng.latitude);
-      await sp.setDouble("map_API_pickupLng",      pickupLatLng.longitude);
-      await sp.setString("map_API_dropoffAddress", dropoffAddr);
-      await sp.setDouble("map_API_dropoffLat",     dropoffLatLng.latitude);
-      await sp.setDouble("map_API_dropoffLng",     dropoffLatLng.longitude);
+    await sp.setString("map_API_pickupAddress",  pickupAddr);
+    await sp.setDouble("map_API_pickupLat",      pickupLatLng.latitude);
+    await sp.setDouble("map_API_pickupLng",      pickupLatLng.longitude);
+    await sp.setString("map_API_dropoffAddress", dropoffAddr);
+    await sp.setDouble("map_API_dropoffLat",     dropoffLatLng.latitude);
+    await sp.setDouble("map_API_dropoffLng",     dropoffLatLng.longitude);
 
-      await sp.setInt("map_API_price", price);
-      await sp.setInt("map_API_distance", distance);
-      await sp.setInt("map_API_duration", duration);
-      await sp.setString("map_API_bookingTime", bookingTime.toString());
-    }
-    catch (e) { developer.log("Map error `saveCustomer()`:\nException: $e"); }
+    await sp.setInt("map_API_price", price);
+    await sp.setInt("map_API_distance", distance);
+    await sp.setInt("map_API_duration", duration);
+    await sp.setString("map_API_bookingTime", bookingTime.toString());
   }
 
 
   Future saveDriver() async {
-        SharedPreferences sp = await SharedPreferences.getInstance();
-    try {
-      await sp.setString("map_API_driverName",        driverName);
-      await sp.setString("map_API_driverPhonenumber", driverPhonenumber);
-      await sp.setDouble("map_API_driverLat",         driverLatLng.latitude);
-      await sp.setDouble("map_API_driverLng",         driverLatLng.longitude);
-    }
-    catch (e) { developer.log("Map error `saveDriver()`:\nException: $e"); }
+    SharedPreferences sp = await SharedPreferences.getInstance();
+    await sp.setString("map_API_driverId",          driverId);
+    await sp.setString("map_API_driverName",        driverName);
+    await sp.setString("map_API_driverPhonenumber", driverPhonenumber);
+    await sp.setDouble("map_API_driverLat",         driverLatLng.latitude);
+    await sp.setDouble("map_API_driverLng",         driverLatLng.longitude);
   }
 
 
@@ -71,29 +66,25 @@ class MapAPI {
   // * Lấy dữ liệu
   Future loadCustomer() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
-    try {
-      pickupAddr    = sp.getString("map_API_pickupAddress")!;
-      pickupLatLng  = LatLng(sp.getDouble("map_API_pickupLat")!, sp.getDouble("map_API_pickupLng")!);
-      dropoffAddr   = sp.getString("map_API_dropoffAddress")!;
-      dropoffLatLng = LatLng(sp.getDouble("map_API_dropoffLat")!, sp.getDouble("map_API_dropoffLng")!);
-      
-      price    = sp.getInt("map_API_price")!;
-      distance = sp.getInt("map_API_distance")!;
-      duration = sp.getInt("map_API_duration")!;
-      bookingTime = DateTime.parse(sp.getString("map_API_bookingTime")!);
-    }
-    catch (e) { developer.log("Throw error `loadCustomer()`. Exception: $e"); }
+    pickupAddr    = sp.getString("map_API_pickupAddress") ?? "";
+    pickupLatLng  = LatLng(sp.getDouble("map_API_pickupLat") ?? 0, sp.getDouble("map_API_pickupLng") ?? 0);
+    dropoffAddr   = sp.getString("map_API_dropoffAddress") ?? "";
+    dropoffLatLng = LatLng(sp.getDouble("map_API_dropoffLat") ?? 0, sp.getDouble("map_API_dropoffLng") ?? 0);
+    
+    price    = sp.getInt("map_API_price")    ?? 0;
+    distance = sp.getInt("map_API_distance") ?? 0;
+    duration = sp.getInt("map_API_duration") ?? 0;
+    try { bookingTime = DateTime.parse(sp.getString("map_API_bookingTime")!); }
+    catch (e) { bookingTime = DateTime.now(); }
   }
 
 
   Future loadDriver() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
-    try {
-      driverName = sp.getString("map_API_driverName")!;
-      driverPhonenumber = sp.getString("map_API_driverPhonenumber")!;
-      driverLatLng = LatLng(sp.getDouble("map_API_driverLat")!, sp.getDouble("map_API_driverLng")!);
-    }
-    catch (e) { developer.log("Throw error `loadDriver()`. Exception: $e"); }
+    driverId          = sp.getString("map_API_driverId")          ?? "";
+    driverName        = sp.getString("map_API_driverName")        ?? "";
+    driverPhonenumber = sp.getString("map_API_driverPhonenumber") ?? "";
+    driverLatLng = LatLng(sp.getDouble("map_API_driverLat") ?? 0, sp.getDouble("map_API_driverLng") ?? 0);
   }
 
 
@@ -112,30 +103,25 @@ class MapAPI {
   // * Xoá
   Future<bool> clearData() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
-    try {
-      await sp.setString("map_API_pickupAddress",  "");
-      await sp.setDouble("map_API_pickupLat",      0.0);
-      await sp.setDouble("map_API_pickupLng",      0.0);
-      await sp.setString("map_API_dropoffAddress", "");
-      await sp.setDouble("map_API_dropoffLat",     0.0);
-      await sp.setDouble("map_API_dropoffLng",     0.0);
+    await sp.setString("map_API_pickupAddress",  "");
+    await sp.setDouble("map_API_pickupLat",      0.0);
+    await sp.setDouble("map_API_pickupLng",      0.0);
+    await sp.setString("map_API_dropoffAddress", "");
+    await sp.setDouble("map_API_dropoffLat",     0.0);
+    await sp.setDouble("map_API_dropoffLng",     0.0);
 
-      await sp.setInt("map_API_price", 0);
-      await sp.setInt("map_API_distance", 0);
-      await sp.setInt("map_API_duration", 0);
-      await sp.setString("map_API_bookingTime", DateTime.now().toString());
+    await sp.setInt("map_API_price", 0);
+    await sp.setInt("map_API_distance", 0);
+    await sp.setInt("map_API_duration", 0);
+    await sp.setString("map_API_bookingTime", DateTime.now().toString());
 
-      await sp.setString("map_API_driverName",        "");
-      await sp.setString("map_API_driverPhonenumber", "");
-      await sp.setDouble("map_API_driverLat",         0.0);
-      await sp.setDouble("map_API_driverLng",         0.0);
+    await sp.setString("map_API_driverId",          "");
+    await sp.setString("map_API_driverName",        "");
+    await sp.setString("map_API_driverPhonenumber", "");
+    await sp.setDouble("map_API_driverLat",         0.0);
+    await sp.setDouble("map_API_driverLng",         0.0);
 
-      return Future.value(true);
-    }
-    catch (e) {
-      developer.log("Map error `saveData()`:\nException: $e");
-      return Future.value(false);
-    }
+    return Future.value(true);
   }
 
 

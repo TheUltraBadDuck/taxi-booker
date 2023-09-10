@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '/view_model/account_controller.dart';
 import '/view/decoration.dart';
-
-
-typedef CustomerCallback = Function(String val_1, String val_2, String val_3);
 
 
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({ Key? key, required this.onLogIn, required this.switchToLogin }) : super(key: key);
-  final CustomerCallback onLogIn;
+  const RegisterScreen({ Key? key, required this.onLogIn, required this.switchToLogin, required this.accountController }) : super(key: key);
+  final VoidCallback onLogIn;
   final VoidCallback switchToLogin;
+  final AccountController accountController;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -75,18 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Positioned(top: 540, left: 90, right: 120, child: BigButton(
           bold: true,
           label: "Đăng ký ngay!",
-          onPressed: () {
-            String warningText = getWarningText(
-              usernameController.text, phonenumberController.text,
-              passwordController.text, repeatPasswordController.text);
-
-            if (warningText.isEmpty) {
-              widget.onLogIn( usernameController.text, passwordController.text, phonenumberController.text );
-            }
-            else {
-              warningModal(context, warningText);
-            }
-          }
+          onPressed: () async => register()
         )),
 
         Positioned(top: 640, left: 15, right: 60, child: MaterialButton(
@@ -103,56 +91,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ]))
     );     
   }
-}
 
 
-
-String getWarningText(String username, String phoneNumber, String password, String repeatPassword) {
-  if (!hasUsername(username)) {
-    return "Không có tên người dùng.\nHãy nhập tên yêu thích của bạn, có thể là tên thật hoặc nickname.";
+  Future<void> register() async {
+    try {
+      final status = await widget.accountController.updateRegister(usernameController.text, phonenumberController.text, passwordController.text);
+      if (status) {
+        widget.onLogIn();
+      }
+      else {
+        if (context.mounted) {
+          warningModal(context, "Tài khoản không hợp lệ. Hãy kiểm tra giá trị bị thiếu hoặc có khả năng trùng số điện thoại.");
+        }
+      }
+    }
+    catch (e) {
+      warningModal(context, "Hệ thống đăng nhặp bị lỗi.");
+    }
   }
-  else if (!hasPhoneNumber(phoneNumber)) {
-    return "Bạn cần nhập số điện thoại để sử dụng app này.";
-  }
-  else if (!validPhoneNumber(phoneNumber)) {
-    return "Số điện thoại không hợp lệ.\nBạn hãy kiểm tra số điện thoại có đúng không.";
-  }
-  else if (!correctRangePassword(password)) {
-    return "Mật khẩu không hợp lệ.\nSố lượng ký tự của mật khẩu là từ 8 đến 20.";
-  }
-  else if (!validPassword(password)) {
-    return "Mật khẩu không hợp lệ.\nKý tự phải chứa ít nhất 1 chữ thường, 1 chữ hoa và 1 chữ số.";
-  }
-  else if (!confirmPassword(password, repeatPassword)) {
-    return "Mật khẩu không hợp lệ. Mật khẩu nhập lại không khớp.";
-  }
-  return "";
 }
 
-
-bool hasUsername(String username) {
-  return username.isNotEmpty;
-}
-
-bool hasPhoneNumber(String phonenumber) {
-  return phonenumber.isNotEmpty;
-}
-
-bool validPhoneNumber(String phonenumber) {
-  return phonenumber.length == 10;
-}
-
-bool correctRangePassword(String password) {
-  return (password.length >= 8) && (password.length <= 20);
-}
-
-bool validPassword(String password) {
-  // Kiểm tra mật khẩu hợp lệ trước
-  // Độ dài từ 8 - 20
-  // Có chứa ít nhất 1 ký tự a-z, 1 ký tự A-Z, 1 ký tự số
-  return RegExp(r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])').hasMatch(password);
-}
-
-bool confirmPassword(String password, String passswordConfirm) {
-  return password == passswordConfirm;
-}

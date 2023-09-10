@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '/view_model/user_controller.dart';
+import '/view_model/account_controller.dart';
 import '/view/decoration.dart';
 
 
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({ Key? key, required this.userController, required this.onLogOut }) : super(key: key);
-  final UserController userController;
+  const ProfileScreen({ Key? key, required this.accountController, required this.onLogOut }) : super(key: key);
+  final AccountController accountController;
   final Future<void> Function() onLogOut;
 
   @override
@@ -74,9 +74,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       
           children: [
             const SizedBox(height: 90),
-            RegularTextField(controller: usernameController,    labelText: "Tên người dùng", text: widget.userController.account.map["name"]),
-            RegularTextField(controller: phonenumberController, labelText: "Số điện thoại",  text: widget.userController.account.map["email"]),
-            //RegularTextField(controller: usernameController,    labelText: "Tên người dùng", text: Provider.of<UserController>(context).account.map["name"]),
+            RegularTextField(controller: usernameController,    labelText: "Tên người dùng", text: widget.accountController.account.map["full_name"]),
+            RegularTextField(controller: phonenumberController, labelText: "Số điện thoại",  text: widget.accountController.account.map["phone"]),
 
             const SizedBox(height: 30),
             Container(height: 2, color: Colors.yellow.shade200),
@@ -89,18 +88,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           bold: true,
           width: 240,
           label: "Đăng xuất",
-          onPressed: () async {
-            if (mounted) {
-              await widget.onLogOut();
-            }
-            else {
-              throw "[MOUNTED ERROR AT PROFILE SCREEN]";
-            }
-          }
+          onPressed: () async => logOut()
         )))
 
       ]),
     );
+  }
+
+
+  Future<void> logOut() async {
+    widget.accountController.updateLogOut();
+    if (mounted) {
+      await widget.onLogOut();
+    }
+    else {
+      throw "[MOUNTED ERROR AT PROFILE SCREEN]";
+    }
   }
 }
 

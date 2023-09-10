@@ -6,8 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 
-import '../../view_model/history_controller.dart';
-import '/view_model/user_controller.dart';
+import '/view_model/history_controller.dart';
+import '/view_model/account_controller.dart';
 
 import '/view/decoration.dart';
 import '/view/book/book_screen.dart' show BookScreen;
@@ -16,8 +16,8 @@ import '/view/book/book_screen.dart' show BookScreen;
 
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({ Key? key, required this.userController }) : super(key: key);
-  final UserController userController;
+  const HomeScreen({ Key? key, required this.accountController }) : super(key: key);
+  final AccountController accountController;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -42,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
         create: (_) => HistoryController(),
         builder: (BuildContext context, Widget? child) => StreamBuilder<int> (
           
-        stream: preloadDuringTrip(context.read<HistoryController>()),
+        stream: preloadDuringTrip(context.watch<HistoryController>()),
       
         builder: (BuildContext context, AsyncSnapshot<int> snapshot) => SingleChildScrollView(
           
@@ -95,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
       
                 Positioned( top: 60, left: 0, right: 0, child: Center(
                   child: Text(
-                    widget.userController.account.map["name"],
+                    widget.accountController.account.map["full_name"],
                     style: const TextStyle( fontSize: 32, fontWeight: FontWeight.bold),
                   )
                 )),
@@ -115,10 +115,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Stream<int> preloadDuringTrip(historyController) async* {
     if (!loadOnce) {
+      developer.log("Preload during trip.");
       loadOnce = true;
-      final newDuringTrip = await loadDuringTrip();
-      setState(() => duringTrip = newDuringTrip ?? false);
-
+      await loadDuringTrip();
       await historyController.preload();
     }
   }
@@ -176,10 +175,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   vehicleID: vehicleID,
                   destination: historyController.destinations[i],
                   time: historyController.times[i],
-                  userController: widget.userController,
+                  accountController: widget.accountController,
                   duringTrip: duringTrip,
-                  saveDuringTrip: (bool value) async => saveDuringTrip(value),
-                  loadDuringTrip: () async => loadDuringTrip(),
+                  saveDuringTrip: (bool value) async => saveDuringTrip(value)
                 ));
                 result.add(const SizedBox(height: 15));
               }
@@ -191,10 +189,9 @@ class _HomeScreenState extends State<HomeScreen> {
           
           SearchDestinationButton(
             vehicleID: vehicleID,
-            userController: widget.userController,
+            accountController: widget.accountController,
             duringTrip: duringTrip,
-            saveDuringTrip: (bool value) async => saveDuringTrip(value),
-            loadDuringTrip: () async => loadDuringTrip(),
+            saveDuringTrip: (bool value) async => saveDuringTrip(value)
           )
           
         ]
@@ -212,10 +209,9 @@ class _HomeScreenState extends State<HomeScreen> {
           context, MaterialPageRoute(
             builder: (context) => BookScreen(
               vehicleID: vehicleID,
-              userController: widget.userController,
+              accountController: widget.accountController,
               duringTrip: duringTrip,
-              saveDuringTrip: (bool value) async => saveDuringTrip(value),
-              loadDuringTrip: () async => loadDuringTrip(),
+              saveDuringTrip: (bool value) async => saveDuringTrip(value)
             )
           )
         )
@@ -224,26 +220,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  Future saveDuringTrip(bool value) async {
-    try {
-      SharedPreferences sp = await SharedPreferences.getInstance();
-      await sp.setBool("duringTrip", value);
-      setState(() => duringTrip = value);
-    }
-    catch (e) { developer.log("Unable to save during trip by Shared Preferences."); }
+  Future<void> saveDuringTrip(bool value) async {
+    developer.log("[Save during trip] Save $value");
+    SharedPreferences sp = await SharedPreferences.getInstance();
+    await sp.setBool("duringTrip", value);
+    setState(() => duringTrip = value);
   }
 
 
 
-  Future loadDuringTrip() async {
+  Future<void> loadDuringTrip() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
-    try {
-      final newDuringTrip = sp.getBool("duringTrip");
-      setState(() => duringTrip = newDuringTrip ?? false);
-    }
-    catch (e) {
-      developer.log("Unable to load during trip by Shared Preferences.");
-    }
+    final newDuringTrip = sp.getBool("duringTrip");
+    setState(() => duringTrip = newDuringTrip ?? false);
+    developer.log("[Load during trip] Load $newDuringTrip");
   }
 }
 
@@ -296,7 +286,7 @@ class _CircleCarButtonState extends State<CircleCarButton> {
         width: 45,
         height: 90,
         decoration: BoxDecoration(
-          color: widget.id == 3 ? Colors.white : Colors.yellow.shade50,
+          color: widget.id == 2 ? Colors.white : Colors.yellow.shade50,
           borderRadius: const BorderRadius.all(Radius.circular(9)),
           border: Border.all(
             color: Colors.amber.shade300,
@@ -305,10 +295,10 @@ class _CircleCarButtonState extends State<CircleCarButton> {
         ),
 
         child: IconButton(
-          onPressed: () => widget.id == 3 ? null : setState(widget.idChange),
+          onPressed: () => widget.id == 2 ? null : setState(widget.idChange),
           icon: Icon(
             Icons.chevron_right,
-            color: widget.id == 3 ? Colors.transparent : Colors.black,
+            color: widget.id == 2 ? Colors.transparent : Colors.black,
             size: 24
           )
         )
@@ -325,19 +315,17 @@ class DestinationButton extends StatelessWidget {
     required this.vehicleID,
     required this.destination,
     required this.time,
-    required this.userController,
+    required this.accountController,
     required this.duringTrip,
-    required this.saveDuringTrip,
-    required this.loadDuringTrip
+    required this.saveDuringTrip
   }) : super(key: key);
 
   final int vehicleID;
   final String destination;
   final String time;
-  final UserController userController;
+  final AccountController accountController;
   final bool duringTrip;
   final Function(bool) saveDuringTrip;
-  final VoidCallback loadDuringTrip;
 
   @override
   Widget build(BuildContext context) {
@@ -353,10 +341,9 @@ class DestinationButton extends StatelessWidget {
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookScreen(
             vehicleID: vehicleID,
             destination: destination,
-            userController: userController,
+            accountController: accountController,
             duringTrip: duringTrip,
-            saveDuringTrip: (bool value) async => saveDuringTrip(value),
-            loadDuringTrip: () async => loadDuringTrip(),
+            saveDuringTrip: (bool value) async => saveDuringTrip(value)
           ))),
     
           child: Stack(clipBehavior: Clip.antiAliasWithSaveLayer, children: [
@@ -373,7 +360,7 @@ class DestinationButton extends StatelessWidget {
                   textAlign: TextAlign.left,
                 ),
                 Text(
-                  formalDate(time),
+                  time,
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.left,
                 )
@@ -397,17 +384,15 @@ class SearchDestinationButton extends StatelessWidget {
   const SearchDestinationButton({
     Key? key,
     required this.vehicleID,
-    required this.userController,
+    required this.accountController,
     required this.duringTrip,
-    required this.saveDuringTrip,
-    required this.loadDuringTrip
+    required this.saveDuringTrip
   }) : super(key: key);
 
   final int vehicleID;
-  final UserController userController;
+  final AccountController accountController;
   final bool duringTrip;
   final Function(bool) saveDuringTrip;
-  final VoidCallback loadDuringTrip;
 
   @override
   Widget build(BuildContext context) {
@@ -426,10 +411,9 @@ class SearchDestinationButton extends StatelessWidget {
     
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookScreen(
             vehicleID: vehicleID,
-            userController: userController,
+            accountController: accountController,
             duringTrip: duringTrip,
-            saveDuringTrip: (bool value) async => saveDuringTrip(value),
-            loadDuringTrip: () async => loadDuringTrip(),
+            saveDuringTrip: (bool value) async => saveDuringTrip(value)
           ))),
     
           child: Stack(clipBehavior: Clip.antiAliasWithSaveLayer, children: [
@@ -470,18 +454,16 @@ class DuringTripButton extends StatelessWidget {
   const DuringTripButton({
     Key? key,
     required this.vehicleID,
-    required this.userController,
+    required this.accountController,
     required this.onSetTrip,
     required this.duringTrip,
-    required this.saveDuringTrip,
-    required this.loadDuringTrip
+    required this.saveDuringTrip
   }) : super(key: key);
   final int vehicleID;
-  final UserController userController;
+  final AccountController accountController;
   final Function(bool) onSetTrip;
   final bool duringTrip;
   final Function(bool) saveDuringTrip;
-  final VoidCallback loadDuringTrip;
 
   @override
   Widget build(BuildContext context) {
@@ -500,10 +482,9 @@ class DuringTripButton extends StatelessWidget {
     
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookScreen(
             vehicleID: vehicleID,
-            userController: userController,
+            accountController: accountController,
             duringTrip: duringTrip,
-            saveDuringTrip: (bool value) async => saveDuringTrip(value),
-            loadDuringTrip: () async => loadDuringTrip(),
+            saveDuringTrip: (bool value) async => saveDuringTrip(value)
           ))),
     
           child: Stack(clipBehavior: Clip.antiAliasWithSaveLayer, children: [

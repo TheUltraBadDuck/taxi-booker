@@ -1,8 +1,9 @@
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_app_texting/view_model/map_api_controller.dart';
 
 import '/view/decoration.dart';
-import '/view_model/user_controller.dart';
+import '/view_model/account_controller.dart';
 import '/general/function.dart';
 
 
@@ -13,21 +14,15 @@ import '/general/function.dart';
 class BeforeTaxiTrip extends StatefulWidget {
   const BeforeTaxiTrip({
     Key? key,
-    required this.userController,
+    required this.accountController,
     required this.vehicleID,
-    required this.pickupAddr,
-    required this.dropoffAddr,
-    required this.distance,
-    required this.duration
+    required this.mapAPIController
 
   }) : super(key: key);
 
-  final UserController userController;
+  final AccountController accountController;
   final int vehicleID;
-  final String pickupAddr;
-  final String dropoffAddr;
-  final int distance;
-  final int duration;
+  final MapAPIController mapAPIController;
 
 
   @override
@@ -47,11 +42,11 @@ class _BeforeTaxiTripState extends State<BeforeTaxiTrip> {
       // -------------------- Thanh vị trí -------------------- 
       Positioned(top: 15, left: 15, right: 15, child: PositionBox(
         icon: Icon(Icons.add_circle, color: Colors.deepOrange.shade900),
-        position: widget.pickupAddr
+        position: widget.mapAPIController.mapAPI.pickupAddr
       )),
       Positioned(top: 75, left: 15, right: 15, child: PositionBox(
         icon: Icon(Icons.place, color: Colors.deepOrange.shade900),
-        position: widget.dropoffAddr
+        position: widget.mapAPIController.mapAPI.dropoffAddr
       )),
       Positioned(top: 56, left: 44, child: Container(
         width: 2,
@@ -95,7 +90,7 @@ class _BeforeTaxiTripState extends State<BeforeTaxiTrip> {
             Expanded(child: InfoBox(
               height: 75,
               icon: Icon(Icons.wallet, color: Colors.amber.shade500),
-              detail: "${getPrice(widget.distance, widget.vehicleID)} Đ"
+              detail: "${getPrice(widget.mapAPIController.mapAPI.distance, widget.vehicleID)} Đ"
             )),
         
             const SizedBox(width: 10),
@@ -103,7 +98,7 @@ class _BeforeTaxiTripState extends State<BeforeTaxiTrip> {
             Expanded(child: InfoBox(
               height: 75,
               icon: Icon(Icons.timelapse, color: Colors.amber.shade500),
-              detail: durationToString(widget.duration)
+              detail: durationToString(widget.mapAPIController.mapAPI.duration)
             )),
         
             const SizedBox(width: 10),
@@ -111,7 +106,7 @@ class _BeforeTaxiTripState extends State<BeforeTaxiTrip> {
             Expanded(child: InfoBox(
               height: 75,
               icon: Icon(Icons.location_on, color: Colors.amber.shade500),
-              detail: distanceToString(widget.distance)
+              detail: distanceToString(widget.mapAPIController.mapAPI.distance)
             ))
           ]),
 

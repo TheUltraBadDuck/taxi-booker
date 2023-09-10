@@ -234,9 +234,8 @@ class _BigButtonState extends State<BigButton> {
 String getVehicleName(int vehicleID) {
   switch (vehicleID) {
     case 0: return "Để sau";
-    case 1: return "Xe 4 chỗ";
-    case 2: return "Xe 7 chỗ";
-    case 3: return "Xe 9 chỗ";
+    case 1: return "Xe máy";
+    case 2: return "Xe ô tô";
     default: return "[ERROR]";
   }
 }
@@ -249,9 +248,8 @@ class CarWidget extends StatelessWidget {
   String getCarEmoji() {
     switch (type) {
       case 0: return "⏳";
-      case 1: return "🚕";
+      case 1: return "🛵";
       case 2: return "🚗";
-      case 3: return "🚙";
       default: return "❌";
     }
   }
@@ -338,31 +336,57 @@ class HorizontalLine extends StatelessWidget {
 
 
 
-String formalDate(String date) {
-  String formalDate = "Ngày ";
-  formalDate += date.substring(3, 5);
+class CustomerPoint extends StatelessWidget {
+  const CustomerPoint({super.key});
 
-  switch (date.substring(0, 2)) {
-    case "01": formalDate += " / 1 / "; break;
-    case "02": formalDate += " / 2 / "; break;
-    case "03": formalDate += " / 3 / "; break;
-    case "04": formalDate += " / 4 / "; break;
-    case "05": formalDate += " / 5 / "; break;
-    case "06": formalDate += " / 6 / "; break;
-    case "07": formalDate += " / 7 / "; break;
-    case "08": formalDate += " / 8 / "; break;
-    case "09": formalDate += " / 9 / "; break;
-    case "10": formalDate += " / 10 / "; break;
-    case "11": formalDate += " / 11 / "; break;
-    case "12": formalDate += " / 12 / "; break;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20, height: 20,
+      decoration: BoxDecoration(
+        color: Colors.amber.shade800,
+        borderRadius: const BorderRadius.all(Radius.circular(15)),
+        border: Border.all(color: Colors.white, width: 3)
+      )
+    );
   }
-  formalDate += date.substring(6, 10);
 
-  return formalDate;
 }
 
 
 
+class DestiPoint extends StatelessWidget {
+  const DestiPoint({super.key});
 
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20, height: 20,
+      decoration: BoxDecoration(
+        color: Colors.deepOrange.shade900,
+        borderRadius: const BorderRadius.all(Radius.circular(15)),
+        border: Border.all(color: Colors.white, width: 3)
+      )
+    );
+  }
+}
+
+
+
+class DriverPoint extends StatelessWidget {
+  const DriverPoint({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20, height: 20,
+      decoration: BoxDecoration(
+        color: Colors.deepOrange.shade300,
+        borderRadius: const BorderRadius.all(Radius.circular(15)),
+        border: Border.all(color: Colors.brown.shade700, width: 3)
+      )
+    );
+  }
+}
 
 
