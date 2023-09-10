@@ -7,6 +7,7 @@ import "package:http/http.dart" as http;
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import "package:t_app_2/data/account_reader.dart";
 
 import "/model/map_api.dart";
 import '/general/constant.dart';
@@ -14,7 +15,7 @@ import "/general/function.dart";
 
 
 
-class MapAPIReader {
+class MapAPIReader extends AccountReader {
 
   // * -------------------- Tìm đường giữa điểm bắt đầu và kết thúc --------------------
   // *

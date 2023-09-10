@@ -72,6 +72,28 @@ double getDescrateDistanceSquare(LatLng first, LatLng second) {
 
 
 
+String formatPhonenumber(String phonenumber, bool lengthening, { String country = "VN" }) {
+
+  if (phonenumber.length < 12) {
+    return "";
+  }
+  else if (!lengthening) {
+    switch (country) {
+      case "VN":  (phonenumber.substring(0, 3) == "+84") ? phonenumber.substring(4) : "";
+      default: return "[ERROR]";
+    }
+  }
+  else {
+    switch (country) {
+      case "VN": return "+84 $phonenumber";
+      default: return "[ERROR]";
+    }
+  }
+  return "";
+}
+
+
+
 int getPrice(int distance, int vehicleType, { bool goodHour = false, bool goodWeather = false }) {
   // 1000 l ~ 50000 m  ~ 300.000 vnđ
   //          distance ~ ...?

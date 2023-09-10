@@ -3,13 +3,13 @@ import 'package:provider/provider.dart';
 
 import '/view/decoration.dart';
 import '/view_model/history_controller.dart';
-import '/view_model/user_controller.dart';
+import '/view_model/account_controller.dart';
 
 
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({ Key? key, required this.userController }) : super(key: key);
-  final UserController userController;
+  const HistoryScreen({ Key? key, required this.accountController }) : super(key: key);
+  final AccountController accountController;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -46,7 +46,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     result.add(TripBox(
                       destination: context.watch<HistoryController>().destinations[i],
                       time: context.watch<HistoryController>().times[i],
-                      userController: widget.userController
+                      accountController: widget.accountController
                     ));
                     result.add(const SizedBox(height: 15));
                   }
@@ -75,12 +75,12 @@ class TripBox extends StatelessWidget {
     Key? key,
     required this.destination,
     required this.time,
-    required this.userController,
+    required this.accountController,
   }) : super(key: key);
 
   final String destination;
   final String time;
-  final UserController userController;
+  final AccountController accountController;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +106,7 @@ class TripBox extends StatelessWidget {
                 textAlign: TextAlign.left,
               ),
               Text(
-                formalDate(time),
+                time,
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.left,
               )

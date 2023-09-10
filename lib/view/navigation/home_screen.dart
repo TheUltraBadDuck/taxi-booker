@@ -1,5 +1,4 @@
 import 'dart:async';
-import "dart:developer" as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -8,24 +7,26 @@ import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '/notification.dart';
+import '/service/firebase_notification.dart';
+import '/service/notification.dart';
 import '/general/function.dart';
-import '/view_model/user_controller.dart';
-import '/view_model/map_controller.dart';
-import 'customer/customer_accepted_box.dart';
-import 'customer/customer_info_box.dart';
+import '/view_model/account_controller.dart';
+import '/view_model/map_api_controller.dart';
+import '/view/decoration.dart';
+import '/view/navigation/customer/customer_accepted_box.dart';
+import '/view/navigation/customer/customer_info_box.dart';
 
 
 
 typedef BoolCallBack = Function(bool value);
 
-enum DriverState { idleState, receiveState, tripState }
+enum DriverState { receiveState, tripState }
 
 
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({ Key? key, required this.userController, required this.setNavigatable }) : super(key: key);
-  final UserController userController;
+  const HomeScreen({ Key? key, required this.accountController, required this.setNavigatable }) : super(key: key);
+  final AccountController accountController;
   final BoolCallBack setNavigatable;
 
   @override
@@ -50,22 +51,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final Noti noti = Noti();
 
-  Timer? receiveCustomerTimer;
-  Timer? sendDriverLatLngTimer;
-
-  bool loadReceiveCustomerTimerOnce = false;
-  bool loadSendDriverLatLngTimerOnce = false;
-
-  int numTemp = 0;
-  bool loadOnce = false;
-
 
 
 
   bool active = true;
   bool tracking = true;
 
-  DriverState driverState = DriverState.idleState;
+  DriverState driverState = DriverState.receiveState;
+  int customerLength = 0;
+  int currCustomer = 0;
 
 
 
@@ -162,9 +156,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 markers: [
                   if (allowedNavigation)
                     Marker( point: context.watch<MapAPIController>().mapAPI.driverLatLng, width: 20, height: 20, builder: (context) => const DriverPoint() ),
-                  if ((driverState != DriverState.idleState) && !driverPickingUp)
+                  if ((driverState == DriverState.tripState) && !driverPickingUp)
                     Marker( point: context.watch<MapAPIController>().mapAPI.pickupLatLng, width: 20, height: 20, builder: (context) => const CustomerPoint() ),
-                  if (driverState != DriverState.idleState)
+                  if (driverState == DriverState.tripState)
                     Marker( point: context.watch<MapAPIController>().mapAPI.dropoffLatLng, width: 20, height: 20, builder: (context) => const DestiPoint() )
                 ],
               )
@@ -199,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("Xin chào, ", style: TextStyle(fontSize: 20)),
-              Text(widget.userController.account.map["name"], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))
+              Text(widget.accountController.account.map["full_name"], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))
             ]
           )),
       
@@ -224,37 +218,18 @@ class _HomeScreenState extends State<HomeScreen> {
       
       
           // -------------------- Thông tin khác --------------------
-      
-            // if (driverState == DriverState.idleState)
-            //   ...[
-            //     Positioned(bottom: 15, left: 15, child: DriverInfoBox(
-            //       width: 200,
-            //       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            //         Text("$moneyEarned VNĐ", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            //         const Text("Tiền thu được", style: TextStyle(fontSize: 18))
-            //       ])
-            //     )),
-      
-            //     Positioned(bottom: 15, right: 15, child: DriverInfoBox(
-            //       width: 135,
-            //       child: Row( children: [
-            //         Text("  $totalWork", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.left),
-            //         const Text(" cước", style: TextStyle(fontSize: 24), textAlign: TextAlign.left)
-            //       ])
-            //     )),
-            //   ]
-      
-            // else if (driverState == DriverState.receiveState)
+
             if (driverState == DriverState.receiveState)
               Positioned(bottom: 15, left: 15, right: 15, child: CustomerInfos(
                 mapAPIController: context.read<MapAPIController>(),
-                onAccepted: () => setState(() => driverState = DriverState.tripState),
-                onRejected: () {
-                  context.read<MapAPIController>().clearAll();
-                  setState(() {
-                    loadReceiveCustomerTimerOnce = false;
-                    driverState = DriverState.idleState;
-                  });
+                currCustomer: currCustomer,
+                onTapLeft: ()  { if (currCustomer > 0) setState(() => currCustomer--); },
+                onTapRight: () { if (currCustomer < customerLength - 1) setState(() => currCustomer++); }, 
+                onAccepted: () async {
+                  if (context.mounted) await context.read<MapAPIController>().updateCustomer(currCustomer);
+                  if (context.mounted) await context.read<MapAPIController>().sendBookingAccept();
+                  setState(() => driverState = DriverState.tripState);
+                  FireBaseAPI.sendMessage("f7W0AYWLQmS99_gAvJIfKt:APA91bGu3D8wufjhtUrfDd069hFcKKpppaCfH0fpQdg7DoFwMy4zgcb8womqHOI7jFapFzQQz5WjGZdHep948pg5iYDzjoskkEQCk4koUyRQq2t6ynbqyAgszj5Kz2g1DGqtIjnmjYRw");
                 }
               ))
       
@@ -273,59 +248,46 @@ class _HomeScreenState extends State<HomeScreen> {
   Future finishTrip(mapAPIController) async {
     setState(() {
       driverPickingUp = false;
-      driverState = DriverState.idleState;
-      loadReceiveCustomerTimerOnce = false;
+      driverState = DriverState.receiveState;
+      loadGetCusomterOnce = false;
+      loadOnce = false;
     });
-    await mapAPIController.clearAll();
     noti.showBox("Chuyến đi thành công!", "Cảm ơn bạn đã chở khách hàng đến nơi.");
+    await mapAPIController.clearAll();
+    await mapAPIController.loadCustomers();
   }
 
 
 
-  Stream<int>_waitForServerObserver(mapAPIController) async* {
+  Timer? getCustomerTimer;
+  Timer? postDriverTimer;
 
-    if (!loadOnce) {
+  bool loadGetCusomterOnce = false;
+  bool loadPostDriverOnce = false;
+
+  bool loadOnce = false;
+
+
+  Stream<int> _waitForServerObserver(mapAPIController) async* {
+
+    if (!loadOnce && widget.accountController.account.map["_id"] != "") {
       loadOnce = true;
-      developer.log("Pre-loading the map data");
-
-      final currLocation = await location.getLocation();
-      final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
-      if (mounted) {
-        setState(() {
-          mapAPIController.mapAPI.pickupLatLng = newLocation;
-          allowedNavigation = true;
-        });
-      }
+      await mapAPIController.loadCustomers();
+      setState(() => customerLength = mapAPIController.customerList.length);
     }
 
-
-    if (!loadReceiveCustomerTimerOnce) {
-      loadReceiveCustomerTimerOnce = true;
-      receiveCustomerTimer = Timer.periodic(const Duration(seconds: 5), (timerRunning) async {
-        try {
-          if (mounted) {
-            if (await mapAPIController.updateCustomer()) {
-              mapAPIController.updateS2EPolyline();
-              mapAPIController.updateD2SPolyline();
-              setState(() => driverState = DriverState.receiveState);
-              receiveCustomerTimer?.cancel();
-            }
-          }
-        }
-        catch (e) { throw Exception("Failed code when reading driver, at book_screen.dart. Error type: ${e.toString()}"); }
+    if (!loadGetCusomterOnce && driverState == DriverState.tripState) {
+      loadGetCusomterOnce = true;
+      getCustomerTimer = Timer.periodic(const Duration(seconds: 20), (timerRunning) async {
+        mapAPIController.updatePickupLatLng(await mapAPIController.getCustomerLatLng());
       });
     }
 
 
-    if (!loadSendDriverLatLngTimerOnce && allowedNavigation) {
-      loadSendDriverLatLngTimerOnce = true;
-      sendDriverLatLngTimer = Timer.periodic(const Duration(seconds: 5), (timerRunning) async {
-        try {
-          if (mounted) {
-            mapAPIController.postDriverLatLng();
-          }
-        }
-        catch (e) { throw Exception("Failed code when reading driver, at book_screen.dart. Error type: ${e.toString()}"); }
+    if (!loadPostDriverOnce && allowedNavigation) {
+      loadPostDriverOnce = true;
+      postDriverTimer = Timer.periodic(const Duration(seconds: 20), (timerRunning) async {
+        await mapAPIController.patchDriverLatLng();
       });
     }
     
@@ -333,62 +295,6 @@ class _HomeScreenState extends State<HomeScreen> {
     yield 0;
   }
 
-}
-
-
-
-
-class CustomerPoint extends StatelessWidget {
-  const CustomerPoint({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: Colors.amber.shade800,
-        borderRadius: const BorderRadius.all(Radius.circular(15)),
-        border: Border.all(color: Colors.white, width: 3)
-      )
-    );
-  }
-
-}
-
-
-
-class DestiPoint extends StatelessWidget {
-  const DestiPoint({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: Colors.deepOrange.shade900,
-        borderRadius: const BorderRadius.all(Radius.circular(15)),
-        border: Border.all(color: Colors.white, width: 3)
-      )
-    );
-  }
-}
-
-
-
-class DriverPoint extends StatelessWidget {
-  const DriverPoint({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: Colors.deepOrange.shade300,
-        borderRadius: const BorderRadius.all(Radius.circular(15)),
-        border: Border.all(color: Colors.brown.shade700, width: 3)
-      )
-    );
-  }
 }
 
 

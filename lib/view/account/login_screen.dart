@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '/view/decoration.dart';
-import '/view_model/user_controller.dart';
+import '../../view_model/account_controller.dart';
 
 
 
@@ -10,11 +10,11 @@ class LoginScreen extends StatefulWidget {
     Key? key,
     required this.onLogIn,
     required this.switchToRegister,
-    required this.userController
+    required this.accountController
   }) : super(key: key);
   final VoidCallback onLogIn;
   final VoidCallback switchToRegister;
-  final UserController userController;
+  final AccountController accountController;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -93,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
 
   Future logIn() async {
-  final status = await widget.userController.updateLogIn(phonenumberController.text, passwordController.text);
+  final status = await widget.accountController.updateLogIn(phonenumberController.text, passwordController.text);
     if (status) {
       widget.onLogIn();
     }

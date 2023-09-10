@@ -9,7 +9,7 @@ import '/view/navigation/profile_screen.dart' show ProfileScreen;
 import '/view/account/register_screen.dart' show RegisterScreen;
 import '/view/account/login_screen.dart' show LoginScreen;
 
-import '/view_model/user_controller.dart';
+import '/view_model/account_controller.dart';
 import '/view/decoration.dart';
 
 
@@ -46,31 +46,31 @@ class _NavigationChangeState extends State<NavigationChange> {
     return ChangeNotifierProvider(
       
       create: (_) {
-        UserController userController = UserController();
+        AccountController accountController = AccountController();
         _children = [
-          HomeScreen(userController: userController, setNavigatable: (bool value) {
+          HomeScreen(accountController: accountController, setNavigatable: (bool value) {
             setState(() => navigatable = value);
           }),
-          HistoryScreen(userController: userController),
-          ProfileScreen(userController: userController, onLogOut: () async {
+          HistoryScreen(accountController: accountController),
+          ProfileScreen(accountController: accountController, onLogOut: () async {
             setState(() {
               bottomId = 0;
               screenState = ScreenState.registerScreen;
             });
-            await userController.updateLogOut();
+            await accountController.updateLogOut();
           })
         ];
-        return userController;
+        return accountController;
       },
 
 
       builder: (context, child) => StreamBuilder<int> (
         
-        stream: preload(Provider.of<UserController>(context)),
+        stream: preload(Provider.of<AccountController>(context)),
     
         builder: (BuildContext context, AsyncSnapshot<int> snapshot) {
     
-          if (Provider.of<UserController>(context).token.map["userId"] != -1) {
+          if (Provider.of<AccountController>(context).account.map["_id"] != "") {
             screenState = ScreenState.applicationScreens;
           }
           else {
@@ -85,18 +85,15 @@ class _NavigationChangeState extends State<NavigationChange> {
     
             case ScreenState.registerScreen:
               return RegisterScreen(
-                // token: token,
-                onLogIn: (String username, String passwordHash, String phonenumber) => setState(() {
-                  screenState = ScreenState.applicationScreens;
-                }),
+                accountController: Provider.of<AccountController>(context),
+                onLogIn: () => setState(() => screenState = ScreenState.applicationScreens),
                 switchToLogin: () => setState(() => screenState = ScreenState.loginScreen)
               );
     
               
             case ScreenState.loginScreen:
-              
               return LoginScreen(
-                userController: Provider.of<UserController>(context),
+                accountController: Provider.of<AccountController>(context),
                 onLogIn: () => setState(() => screenState = ScreenState.applicationScreens),
                 switchToRegister: () => setState(() => screenState = ScreenState.registerScreen)
               );
@@ -150,9 +147,9 @@ class _NavigationChangeState extends State<NavigationChange> {
 
 
   bool preloadOnce = false;
-  Stream<int> preload(userController) async* {
+  Stream<int> preload(accountController) async* {
     if (!preloadOnce) {
-      await userController.preload();
+      await accountController.preload();
       preloadOnce = true;
     }
   }
