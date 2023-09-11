@@ -73,7 +73,6 @@ ___
 [x] timezone
 
 ## Một vài ảnh demo
-![image info](./screenshots/driver_login.png)
-![image info](./screenshots/driver_home_2.png)
-![image info](./screenshots/customer_home_pre-book.png)
-![image info](./screenshots/customer_book_duringtrip.png)
+![image info](./screenshots/driver_login.png)           | ![image info](./screenshots/driver_home_2.png)            | ![image info](./screenshots/driver_profile.png)
+-                                                       | -                                                         | -
+![image info](./screenshots/customer_home_pre-book.png) | ![image info](./screenshots/customer_book_duringtrip.png) | ![image info](./screenshots/customer_home_post-book.png)
