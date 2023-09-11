@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:t_app_2/view_model/account_controller.dart';
+import '/view_model/account_controller.dart';
 
 import '/view/decoration.dart';
 

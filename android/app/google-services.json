@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "806836950090",
+    "project_id": "driver-taxi-69a24",
+    "storage_bucket": "driver-taxi-69a24.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:806836950090:android:a2cd0cfe1c3721e8ec02b3",
+        "android_client_info": {
+          "package_name": "com.example.driver_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVGmJTgVM793Fw8poz-OekxshGLzbCybc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

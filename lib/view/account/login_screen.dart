@@ -93,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
 
   Future logIn() async {
-  final status = await widget.accountController.updateLogIn(phonenumberController.text, passwordController.text);
+    final status = await widget.accountController.updateLogIn(phonenumberController.text, passwordController.text);
     if (status) {
       widget.onLogIn();
     }

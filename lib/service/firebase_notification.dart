@@ -38,6 +38,7 @@ class FireBaseAPI {
 
 
   static void sendMessage(String to, { String text = "Gửi thông tin từ khách hàng lên tài xế." }) {
+    developer.log("Send driver notification to customer.");
     FirebaseMessaging.instance.sendMessage(to: to, data: { "request": text });
   }
 

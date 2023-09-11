@@ -74,14 +74,11 @@ double getDescrateDistanceSquare(LatLng first, LatLng second) {
 
 String formatPhonenumber(String phonenumber, bool lengthening, { String country = "VN" }) {
 
-  if (phonenumber.length < 12) {
+  if (phonenumber.length < 11) {
     return "";
   }
   else if (!lengthening) {
-    switch (country) {
-      case "VN":  (phonenumber.substring(0, 3) == "+84") ? phonenumber.substring(4) : "";
-      default: return "[ERROR]";
-    }
+    return phonenumber.substring(4);
   }
   else {
     switch (country) {
@@ -89,7 +86,6 @@ String formatPhonenumber(String phonenumber, bool lengthening, { String country 
       default: return "[ERROR]";
     }
   }
-  return "";
 }
 
 

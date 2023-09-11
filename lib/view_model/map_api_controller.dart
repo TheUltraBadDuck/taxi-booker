@@ -19,11 +19,6 @@ class MapAPIController with ChangeNotifier {
 
 
 
-  void updatePickupLatLng(LatLng value) {
-    mapAPI.pickupLatLng = value;
-    notifyListeners();
-  }
-
   void updateDriverLatLng(LatLng value) {
     mapAPI.driverLatLng = value;
     notifyListeners();
@@ -45,8 +40,10 @@ class MapAPIController with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateCustomer(int currCustomer) async {
+  Future<void> updateCurrentCustomer(int currCustomer) async {
     final jsonVal = customerList[currCustomer];
+
+    mapAPI.tripId = jsonVal["_id"];
 
     mapAPI.customerId = jsonVal["customer_id"];
     mapAPI.customerPhonenumber = jsonVal["phone"];
@@ -69,12 +66,10 @@ class MapAPIController with ChangeNotifier {
   
   Future<void> loadCustomers() async {
     final result = await MapAPIReader().toggleFunction((String token) async {
+      customerList.clear();
       return http.get(
         Uri.parse(Driver.nearbyBookingRequest),
-        headers: {
-          "Content-Type": "application/json; charset=UTF-8",
-          "authentication": token,
-        }
+        headers: { "Content-Type": "application/json; charset=UTF-8", "authentication": token }
       );
     }, "Get 5 nearest customers");
 
@@ -86,36 +81,33 @@ class MapAPIController with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendBookingAccept() async {
+  Future<bool> sendBookingAccept() async {
     developer.log("Trying to send booking acceptance");
-    // final result = await MapAPIReader().toggleFunction((String token) async {
-    //   return http.post(
-    //     Uri.parse(Driver.sendBookingAccept),
-    //     headers: {
-    //       "Content-Type": "application/json; charset=UTF-8",
-    //       "authentication": token,
-    //     },
-    //     body: {}
-    //   );
-    // }, "Send Booking Acceptance");
+    final result = await MapAPIReader().toggleFunction((String token) async {
+      return http.patch(
+        Uri.parse("${Driver.sendBookingAccept}?booking_id=${mapAPI.tripId}"),
+        headers: { "Content-Type": "application/json; charset=UTF-8", "authentication": token }
+      );
+    }, "Send Booking Acceptance");
 
-    // if (result["status"]) {
-    //   developer.log("Successfully send accepted booking acceptance.");
-    // }
+    if (result["status"]) {
+      if (result["body"]["status"] is int) {
+        return Future.value(false);
+      }
+      else {
+        developer.log("Successfully send accepted booking acceptance.");
+        return Future.value(true);
+      }
+    }
+    return Future.value(false);
   }
 
   Future<void> patchDriverLatLng() async {
     final result = await MapAPIReader().toggleFunction((String token) async {
       return http.patch(
         Uri.parse(Driver.setLatLong),
-        headers: {
-          "Content-Type": "application/json; charset=UTF-8",
-          "authentication": token,
-        },
-        body: json.encode({
-          "latitude": mapAPI.driverLatLng.latitude,
-          "longitude": mapAPI.driverLatLng.longitude
-        })
+        headers: { "Content-Type": "application/json; charset=UTF-8", "authentication": token },
+        body: json.encode({ "latitude": mapAPI.driverLatLng.latitude, "longitude": mapAPI.driverLatLng.longitude })
       );
     }, "Patch Driver Location");
 
@@ -124,9 +116,21 @@ class MapAPIController with ChangeNotifier {
     }
   }
 
-  Future<LatLng> getCustomerLatLng() async {
-    return const LatLng(10.0, 100.0);
+  Future<void> completeTrip() async {
+    final result = await MapAPIReader().toggleFunction((String token) async {
+      return http.patch(
+        Uri.parse("${Driver.setCompleted}?booking_id=${mapAPI.tripId}"),
+        headers: { "Content-Type": "application/json; charset=UTF-8", "authentication": token }
+      );
+    }, "Complete trip");
+
+    if (result["status"]) {
+      print(result["body"]);
+      developer.log("Successfully complete the trip to carry the customer.");
+    }
   }
+
+
 
 
 
@@ -143,7 +147,7 @@ class MapAPIController with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> clearAll() async {
+  Future<void> clearTrip() async {
     await mapAPI.clearData();
     await mapAPI.loadTrip();
     mapAPI.s2ePolylines = Polyline(points: <LatLng>[]);

@@ -17,10 +17,11 @@ class Auth {
 class Driver {
   static const String port = "3003";
   static const String setLatLong = "$headPoint:$port/setLatLong";
-  static const String getLatLong = "$headPoint:$port/getLatLong";
   static const String userInfo = "$headPoint:$port/userInfor";
   static const String nearbyBookingRequest = "$headPoint:$port/getNearbyBookingRequest";
-  static const String sendBookingAccept = "$headPoint:$port/sendBookingAccept";
+  static const String sendBookingAccept = "$headPoint:$port/acceptBookingRequest";
+  static const String getHistory = "$headPoint:$port/getHistory";
+  static const String setCompleted = "$headPoint:$port/setCompleted";
 }
 
 class Customer {
@@ -28,8 +29,10 @@ class Customer {
   static const String sendBookingRequest = "$headPoint:$port/sendBookingRequest";
   static const String getHistory = "$headPoint:$port/getHistory";
   static const String setLatLong = "$headPoint:$port/setLatLong";
-  static const String getLatLong = "$headPoint:$port/getLatLong";
   static const String userInfo = "$headPoint:$port/userInfor";
+  static const String setDriverRate = "$headPoint:$port/rateDriver";
+  static const String getDriverRate = "$headPoint:$port/driverRate";
+  static const String getDriverLocation = "$headPoint:$port/getDriverLocationByBR";
 }
 
 

@@ -13,7 +13,7 @@ class TokenSaver {
     return _instance;
   }
 
-  Future save(String newAccessToken, String newRefreshToken) async {
+  Future<void> save(String newAccessToken, String newRefreshToken) async {
     SharedPreferences sp = await SharedPreferences.getInstance();
     await sp.setString("accessToken",  newAccessToken);
     await sp.setString("refreshToken", newRefreshToken);
@@ -29,7 +29,7 @@ class TokenSaver {
     return sp.getString("refreshToken") ?? "";
   }
 
-  Future clear() async {
+  Future<void> clear() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
     await sp.setString("accessToken",  "");
     await sp.setString("refreshToken", "");

@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MapAPI {
 
+  String tripId = "";
+
   String pickupAddr = "";
   LatLng pickupLatLng = const LatLng(10.0, 100.0);
 
@@ -23,15 +25,17 @@ class MapAPI {
   Polyline s2ePolylines = Polyline(points: []);
   Polyline d2sPolylines = Polyline(points: []);
 
-  int customerId = -1;
+  String customerId = "";
   String customerName = "";
   String customerPhonenumber = "";
 
 
 
   Future saveTrip() async {
-        SharedPreferences sp = await SharedPreferences.getInstance();
+    SharedPreferences sp = await SharedPreferences.getInstance();
     try {
+      await sp.setString("map_API_tripId", tripId);
+
       await sp.setString("map_API_pickupAddress",  pickupAddr);
       await sp.setDouble("map_API_pickupLat",      pickupLatLng.latitude);
       await sp.setDouble("map_API_pickupLng",      pickupLatLng.longitude);
@@ -43,7 +47,7 @@ class MapAPI {
       await sp.setInt("map_API_distance", distance);
       await sp.setInt("map_API_duration", duration);
 
-      await sp.setInt("map_API_customerId",          customerId);
+      await sp.setString("map_API_customerId",          customerId);
       await sp.setString("map_API_customerName",        customerName);
       await sp.setString("map_API_customerPhonenumber", customerPhonenumber);
     }
@@ -56,6 +60,7 @@ class MapAPI {
   Future loadTrip() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
     try {
+      tripId        = sp.getString("map_API_tripId")!;
       pickupAddr    = sp.getString("map_API_pickupAddress")!;
       pickupLatLng  = LatLng(sp.getDouble("map_API_pickupLat")!, sp.getDouble("map_API_pickupLng")!);
       dropoffAddr   = sp.getString("map_API_dropoffAddress")!;
@@ -65,7 +70,7 @@ class MapAPI {
       distance = sp.getInt("map_API_distance")!;
       duration = sp.getInt("map_API_duration")!;
 
-      customerId = sp.getInt("map_API_customerId")!;
+      customerId = sp.getString("map_API_customerId")!;
       customerName = sp.getString("map_API_customerName")!;
       customerPhonenumber = sp.getString("map_API_customerPhonenumber")!;
     }
@@ -79,6 +84,8 @@ class MapAPI {
   Future<bool> clearData() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
     try {
+      await sp.setString("map_API_tripId", "");
+
       await sp.setString("map_API_pickupAddress",  "");
       await sp.setDouble("map_API_pickupLat",      0.0);
       await sp.setDouble("map_API_pickupLng",      0.0);
@@ -89,9 +96,8 @@ class MapAPI {
       await sp.setInt("map_API_price", 0);
       await sp.setInt("map_API_distance", 0);
       await sp.setInt("map_API_duration", 0);
-      await sp.setString("map_API_bookingTime", DateTime.now().toString());
 
-      await sp.setInt("map_API_customerId",          -1);
+      await sp.setString("map_API_customerId",          "");
       await sp.setString("map_API_customerName",        "");
       await sp.setString("map_API_customerPhonenumber", "");
       return Future.value(true);

@@ -14,6 +14,7 @@ import '/view/decoration.dart';
 
 
 
+
 enum ScreenState {
   registerScreen,
   loginScreen,
@@ -36,7 +37,7 @@ class _NavigationChangeState extends State<NavigationChange> {
   int bottomId = 0;             // Navigation
   List<Widget> _children = [];  // Navigation
 
-  bool navigatable = false;
+  bool logoutAble = true;
 
 
 
@@ -48,16 +49,17 @@ class _NavigationChangeState extends State<NavigationChange> {
       create: (_) {
         AccountController accountController = AccountController();
         _children = [
-          HomeScreen(accountController: accountController, setNavigatable: (bool value) {
-            setState(() => navigatable = value);
-          }),
+          HomeScreen(accountController: accountController, setLogoutAble: (bool value) => setState(() => logoutAble = value)),
           HistoryScreen(accountController: accountController),
           ProfileScreen(accountController: accountController, onLogOut: () async {
-            setState(() {
-              bottomId = 0;
-              screenState = ScreenState.registerScreen;
-            });
-            await accountController.updateLogOut();
+            if (logoutAble) {
+              setState(() { bottomId = 0;
+                            screenState = ScreenState.registerScreen; });
+              await accountController.updateLogOut();
+            }
+            else {
+              warningModal(context, "Chuyến đi chưa kết thúc. Hãy tiếp tục chuyến đi của bạn.");
+            }
           })
         ];
         return accountController;
@@ -118,14 +120,7 @@ class _NavigationChangeState extends State<NavigationChange> {
                   unselectedIconTheme:  const IconThemeData( size: 24 ),
     
                   currentIndex: bottomId,
-                  onTap: (value) {
-                    if (navigatable) {
-                      setState(() => bottomId = value);
-                    }
-                    else {
-                      warningModal(context, "Hãy tắt nút 'Hoạt động' ở trên để có thể thao tác nút dưới đây.");
-                    }
-                  },
+                  onTap: (value) => setState(() => bottomId = value),
                   
                   items: const [
                     BottomNavigationBarItem(icon: Icon(Icons.map),     label: "Bản đồ"),
@@ -149,8 +144,8 @@ class _NavigationChangeState extends State<NavigationChange> {
   bool preloadOnce = false;
   Stream<int> preload(accountController) async* {
     if (!preloadOnce) {
-      await accountController.preload();
       preloadOnce = true;
+      await accountController.preload();
     }
   }
 }
