@@ -36,7 +36,7 @@ class _AfterTaxiTripState extends State<AfterTaxiTrip> {
       )),
 
 
-      Positioned(top: 240, left: 0, right: 0, child: Container(
+      Positioned(top: 210, left: 0, right: 0, child: Container(
         padding: const EdgeInsets.only(left: 30, right: 30),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           for (int i = 0; i < 5; i++)
@@ -58,8 +58,8 @@ class _AfterTaxiTripState extends State<AfterTaxiTrip> {
               const Text("Cảm ơn bạn đã sử dụng ứng dụng và đến nơi. Chúc bạn đến nơi vui vẻ.", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
               const SizedBox(height: 30),
               Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                BigButton( bold: true, width: 150, label: "Đánh giá", onPressed: () => star > 0 ? widget.onRated(star) : null), // Ra khỏi giao diện chính
-                BigButton( bold: true, width: 150, label: "Bỏ qua",   onPressed: () => widget.onIgnored())
+                BigButton( bold: true, width: 90, label: "Đánh giá", onPressed: () => star > 0 ? widget.onRated(star) : null), // Ra khỏi giao diện chính
+                BigButton( bold: true, width: 90, label: "Bỏ qua",   onPressed: () => widget.onIgnored())
               ])
             ],
           ),
@@ -81,7 +81,7 @@ class StarRate extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => onTap(),
-      child: Icon(shining ? Icons.star : Icons.star_border, color: Colors.amber.shade500, size: 24)
+      child: Icon(shining ? Icons.star : Icons.star_border, color: Colors.deepOrange.shade900, size: 48)
     );
   }
 

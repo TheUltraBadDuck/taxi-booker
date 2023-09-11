@@ -44,14 +44,18 @@ class BookScreen extends StatefulWidget {
   const BookScreen({
     Key? key,
     required this.vehicleID,
-    this.destination = "",
+    this.dropoffAddress = "",
+    this.dropoffLatitude = 0.0,
+    this.dropoffLongitude = 0.0,
     required this.accountController,
     required this.duringTrip,
     required this.saveDuringTrip
   }) : super(key: key);
 
   final int vehicleID;
-  final String destination;
+  final String dropoffAddress;
+  final double dropoffLatitude;
+  final double dropoffLongitude;
   final AccountController accountController;
   final bool duringTrip;
   final Function(bool) saveDuringTrip;
@@ -69,7 +73,7 @@ class _BookScreenState extends State<BookScreen> {
   BookState bookState = BookState.beforeSearch;
 
   // Thông tin liên quan để hiển thị trên bản đồ
-  bool allowedNavigation = false;
+  bool allowedNavigation = true;
   Location location = Location();
   MapController mapController = MapController();
 
@@ -91,16 +95,11 @@ class _BookScreenState extends State<BookScreen> {
   // --------------------  Các hàm chính -------------------- 
 
 
-  @override
-  _BookScreenState() {
-    location.enableBackgroundMode(enable: true);
-  }
-
-
 
   @override
   void initState() {
     super.initState();
+    location.enableBackgroundMode(enable: true);
     noti.initialize();
   }
 
@@ -142,16 +141,20 @@ class _BookScreenState extends State<BookScreen> {
         create: (_) {
           MapAPIController mapAPIController = MapAPIController();
 
-          // Lắng nghe định vị GPS
-          listenLocation = location.onLocationChanged.listen((LocationData currLocation) {
-            final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
+          // location.requestPermission().then((granted) {
+          //   listenLocation = location.onLocationChanged.listen((LocationData currLocation) {
+          //     setState(() { mapAPIController.mapAPI.pickupLatLng = LatLng(currLocation.latitude!, currLocation.longitude!);
+          //                 allowedNavigation = true; });
+          //   });
+          // }).catchError((e) {
+          //   developer.log("Error when listening the location. Error: $e");
+          //   setState(() => allowedNavigation = false);
+          // });
 
-            if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, newLocation) > 10e-7) {
-              if (mounted) {
-                setState(() { mapAPIController.mapAPI.pickupLatLng = newLocation;
-                              allowedNavigation = true; });
-              }
-            }
+          // // Lắng nghe định vị GPS
+          listenLocation = location.onLocationChanged.listen((LocationData currLocation) {
+            mapAPIController.updatePickupLatLng(LatLng(currLocation.latitude!, currLocation.longitude!));
+            setState(() => allowedNavigation = true);
           });
 
           return mapAPIController;
@@ -327,10 +330,7 @@ class _BookScreenState extends State<BookScreen> {
         developer.log("Pre-loading trip");
         vehicleID = widget.vehicleID;
 
-        await saveBookState(BookState.beforeTaxiArrival);
-
-        bookState = BookState.beforeTaxiArrival;
-
+        await loadBookState();
         switch (bookState) {
 
           case BookState.scheduleTaxiArrival:
@@ -372,7 +372,7 @@ class _BookScreenState extends State<BookScreen> {
           
 
           default:
-            developer.log(" > Invalid taxi arrival.");
+            developer.log(" > Invalid taxi arrival. State: ${bookState.name}.");
             await mapAPIController.clearAll();
             await widget.saveDuringTrip(false);
             await saveBookState(BookState.beforeSearch);
@@ -387,17 +387,15 @@ class _BookScreenState extends State<BookScreen> {
         }
 
         // Cập nhật vị trí cần đến
-        if (widget.destination.isNotEmpty) {
+        if (widget.dropoffAddress.isNotEmpty) {
           try {
             final currLocation = await location.getLocation();
             final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
             if (mounted) {
               mapAPIController.updatePickupLatLng(newLocation);
-              await mapAPIController.patchPickupLatLng();
-              await mapAPIController.updatePickupAddr(widget.destination);
-              if (await mapAPIController.searchDropoff(widget.destination)) {
-                await mapAPIController.updateS2EPolyline(vehicleID: vehicleID);
-              }
+              mapAPIController.updateDropoffLatLng(LatLng(widget.dropoffLatitude, widget.dropoffLongitude));
+              mapAPIController.updateDropoffAddr(widget.dropoffAddress);
+              await mapAPIController.updateS2EPolyline(vehicleID: vehicleID);
               await saveBookState(BookState.afterSearch);
               setState(() { mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
                             allowedNavigation = true; });
@@ -416,35 +414,46 @@ class _BookScreenState extends State<BookScreen> {
       loadPatchCustomerOnce = true;
       // Lắng nghe định vị GPS
       patchCustomerTimer = Timer.periodic(const Duration(seconds: 10), (timerRunning) async {
+        final currLocation = await location.getLocation();
+        print("COORD! ${currLocation.latitude}, ${currLocation.longitude}");
+        mapAPIController.updatePickupLatLng(LatLng(currLocation.latitude!, currLocation.longitude!));
         await mapAPIController.patchPickupLatLng();
       });
     }
 
 
     // Chờ tài xế chấp nhận cước đi
-    if (!loadDriverFoundTimerOnce && (bookState == BookState.beforeTaxiArrival)) {
-      loadDriverFoundTimerOnce = true;
-      driverFoundTimer = Timer.periodic(const Duration(seconds: 10), (timerRunning) async {
-        if (mounted) {
-          if (await mapAPIController.getDriverLocation()) {
-            if (bookState == BookState.beforeTaxiArrival) {
-              await saveBookState(BookState.duringTaxiArrival);
-            }
-            else if (bookState == BookState.duringTaxiArrival) {
-              // Cập nhật nếu gặp được tài xế
-              if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.driverLatLng) < 10e-7 && !driverPickingUp) {
-                setState(() => driverPickingUp = true);
-                noti.showBox("Taxi đã đến", "Hãy bắt đầu hành trình đi đến nơi cần đến nào!");
-              }
+    if (!loadDriverFoundTimerOnce) {
+      if ((bookState == BookState.beforeTaxiArrival) || (bookState == BookState.duringTaxiArrival)) {
+        loadDriverFoundTimerOnce = true;
+        driverFoundTimer = Timer.periodic(const Duration(seconds: 10), (timerRunning) async {
 
-              // Cập nhật nếu đến đích
-              if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.dropoffLatLng) < 10e-7) {
-                await saveBookState(BookState.afterTaxiArrival);
+          if (mounted) {
+            if (await mapAPIController.getDriverLocation()) {
+
+              await mapAPIController.saveDriver();
+
+              if (bookState == BookState.beforeTaxiArrival) {
+                await saveBookState(BookState.duringTaxiArrival);
+                await mapAPIController.updateD2SPolyline();
+              }
+              else if (bookState == BookState.duringTaxiArrival) {
+
+                // Cập nhật nếu gặp được tài xế
+                if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.driverLatLng) < 10e-7 && !driverPickingUp) {
+                  setState(() => driverPickingUp = true);
+                  noti.showBox("Taxi đã đến", "Hãy bắt đầu hành trình đi đến nơi cần đến nào!");
+                }
+
+                // Cập nhật nếu đến đích
+                if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.dropoffLatLng) < 10e-7) {
+                  await saveBookState(BookState.afterTaxiArrival);
+                }
               }
             }
           }
-        }
-      });
+        });
+      }
     }
 
     yield 0;
@@ -456,7 +465,7 @@ class _BookScreenState extends State<BookScreen> {
   Future<void> saveBookState(BookState value) async {
     developer.log("[Save bookstate] Save $value");
     SharedPreferences sp = await SharedPreferences.getInstance();
-    await sp.setInt("bookState", bookState.index);
+    await sp.setInt("bookState", value.index);
     setState(() => bookState = value);
   }
 
@@ -466,5 +475,20 @@ class _BookScreenState extends State<BookScreen> {
     developer.log("[Load bookstate] Load $bookState");
   }
 }
+
+
+
+            // await mapAPIController.setTemp(<String, dynamic>{
+            //   "pickup_address": "Hẻm 541 Đường Ðiện Biên Phủ, Phường 3, Quận 3, Thành phố Hồ Chí Minh, 72406, Việt Nam",
+            //   "dropoff_address": "Cho Ben Thanh, Ho Chi Minh City, HC, Vietnam",
+            //   "pickup_latitude": 10.77045,
+            //   "pickup_longitude": 106.67747,
+            //   "dropoff_latitude":  10.77242,
+            //   "dropoff_longitude": 106.69811,
+            //   "price": 30135,
+            //   "distance": 3044,
+            //   "duration": 676,
+            //   "booking_time": DateTime.parse("2023-09-08T10:35:50.699+00:00")
+            // });
 
 

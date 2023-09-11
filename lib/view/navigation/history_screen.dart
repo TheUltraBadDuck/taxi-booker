@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '/view/decoration.dart';
 import '/view_model/history_controller.dart';
 import '/view_model/account_controller.dart';
+import '/view/decoration.dart';
 
 
 
@@ -135,3 +135,4 @@ class TripBox extends StatelessWidget {
     return "${read.day} / ${read.month} / ${read.year}";
   }
 }
+

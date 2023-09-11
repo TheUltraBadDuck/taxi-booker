@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 
+import '/service/firebase_notification.dart';
+
+import '/view_model/account_controller.dart';
+
 import '/view/navigation/home_screen.dart' show HomeScreen;
 import '/view/navigation/history_screen.dart' show HistoryScreen;
 import '/view/navigation/profile_screen.dart' show ProfileScreen;
 
 import '/view/account/register_screen.dart' show RegisterScreen;
 import '/view/account/login_screen.dart' show LoginScreen;
-
-import '/view_model/account_controller.dart';
 import '/view/decoration.dart';
+
 
 
 
@@ -48,6 +51,7 @@ class _NavigationChangeState extends State<NavigationChange> {
       
       create: (_) {
         AccountController accountController = AccountController();
+
         _children = [
           HomeScreen(accountController: accountController, setLogoutAble: (bool value) => setState(() => logoutAble = value)),
           HistoryScreen(accountController: accountController),
@@ -58,10 +62,13 @@ class _NavigationChangeState extends State<NavigationChange> {
               await accountController.updateLogOut();
             }
             else {
-              warningModal(context, "Chuyến đi chưa kết thúc. Hãy tiếp tục chuyến đi của bạn.");
+              warningModal(context, "Chuyến đi chưa kết thúc. Hãy tiếp tục chuyến đi của bạn để có thể đăng xuất.");
             }
           })
         ];
+
+        FireBaseAPI.listenMessage();
+
         return accountController;
       },
 
@@ -82,7 +89,6 @@ class _NavigationChangeState extends State<NavigationChange> {
           }
     
     
-    
           switch (screenState) {
     
             case ScreenState.registerScreen:
@@ -94,6 +100,7 @@ class _NavigationChangeState extends State<NavigationChange> {
     
               
             case ScreenState.loginScreen:
+              
               return LoginScreen(
                 accountController: Provider.of<AccountController>(context),
                 onLogIn: () => setState(() => screenState = ScreenState.applicationScreens),
@@ -144,8 +151,8 @@ class _NavigationChangeState extends State<NavigationChange> {
   bool preloadOnce = false;
   Stream<int> preload(accountController) async* {
     if (!preloadOnce) {
-      preloadOnce = true;
       await accountController.preload();
+      preloadOnce = true;
     }
   }
 }

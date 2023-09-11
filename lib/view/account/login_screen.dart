@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '/view/decoration.dart';
-import '../../view_model/account_controller.dart';
+import '/view_model/account_controller.dart';
 
 
 
@@ -38,33 +38,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
       body: SafeArea( child: Stack( children: [
 
-         // --------------------- Trang trí ---------------------
-        Positioned(top: -120, left: 120, right: 120, child: circle(Colors.amber.shade600, 120)),
-        Positioned(top: 30, left: 90, right: 90, child: Text(
-          "Đăng nhập tài khoản", textAlign: TextAlign.center,
+        // --------------------- Trang trí ---------------------
+        Positioned(top: -60, right: -60, child: circle(Colors.amber.shade600, 90)),
+        Positioned(top: 30, left: 90, right: 45, child: Text(
+          "Đăng nhập tài khoản", textAlign: TextAlign.end,
           style: TextStyle(fontSize: 28, color: Colors.brown.shade900, fontWeight: FontWeight.bold)
         )),
 
-        Positioned(top: 150, left: -45, right: -30, child: Container(
+        Positioned(top: 120, left: -235, right: 30, child: Container(
           width: 710, height: 760,
           decoration: BoxDecoration(
             color: Colors.yellow.shade600,
-            borderRadius: const BorderRadius.all(Radius.circular(180))
+            borderRadius: const BorderRadius.all(Radius.circular(300))
           ),
         )),
 
-        Positioned(top: 160, left: -35, right: -20, child: Container(
-          width: 700, height: 600,
+        Positioned(top: 150, left: -240, right: 40, child: Container(
+          width: 700, height: 700,
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.all(Radius.circular(180))
+            borderRadius: BorderRadius.all(Radius.circular(300))
           ),
         )),
 
         // --------------------- Trường nhập ---------------------
         Positioned(top: 180, left: 15, right: 60, child: Column( children: [
           RegularTextField(controller: phonenumberController, labelText: "Số điện thoại", obscureText: false),
-          RegularTextField(controller: passwordController,    labelText: "Mật khẩu",      obscureText: true),
+          RegularTextField(controller: passwordController, labelText: "Mật khẩu",      obscureText: true),
         ])),
         
         // --------------------- Nút đăng nhập ---------------------
@@ -92,15 +92,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
 
 
-  Future logIn() async {
-    final status = await widget.accountController.updateLogIn(phonenumberController.text, passwordController.text);
-    if (status) {
-      widget.onLogIn();
-    }
-    else {
-      if (context.mounted) {
-        warningModal(context, "Email hoặc mật khẩu không hợp lệ.");
+  Future<void> logIn() async {
+    try {
+      final status = await widget.accountController.updateLogIn(phonenumberController.text, passwordController.text);
+      if (status) {
+        widget.onLogIn();
       }
+      else {
+        if (context.mounted) {
+          warningModal(context, "Email hoặc mật khẩu không hợp lệ.");
+        }
+      }
+    }
+    catch (e) {
+      warningModal(context, "Hệ thống đăng nhặp bị lỗi.");
     }
   }
 }
