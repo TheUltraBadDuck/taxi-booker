@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import "dart:developer" as developer;
-import 'package:flutter_app_texting/model/token_saver.dart';
 import "package:http/http.dart" as http;
 import 'package:jwt_decoder/jwt_decoder.dart';
 
 
+import '/model/token_saver.dart';
 import '/general/constant.dart';
 
 
@@ -25,9 +25,7 @@ class AccountReader {
                                                         "phone": "+84 $phonenumber",
                                                         "password": password,
                                                         "full_name": username,
-                                                        "role": "CUSTOMER",
-                                                        "longtitude": 0,
-                                                        "latitude": 0
+                                                        "role": "DRIVER"
                                                       }));
 
     try {
@@ -35,11 +33,10 @@ class AccountReader {
 
       if ((response.statusCode == 200) || (response.statusCode == 201)) {}
       else {
-        developer.log("Failed HTTP when registering: ${response.statusCode}");
+        developer.log("Failed HTTP when register: ${response.statusCode}");
         result["status"] = false;
       }
       return result;
-
     }
     catch (e) { throw Exception("Failed code when trying to register an account, at saved_data.dart. Error type: ${e.toString()}"); }
   }
@@ -52,7 +49,7 @@ class AccountReader {
   // *   status: <bool>
   // *   body: <Map>
   // * }
-  // *
+  
   Future< Map<String, dynamic> > logIn(String phonenumber, String password) async {
 
     Map<String, dynamic> result = { "status": false, "body": null };
@@ -61,7 +58,7 @@ class AccountReader {
                                     body: jsonEncode({
                                             "phone": "+84 $phonenumber",
                                             "password": password,
-                                            "role": "CUSTOMER"
+                                            "role": "DRIVER"
                                           }));
 
     try {
@@ -70,7 +67,7 @@ class AccountReader {
         developer.log("Successfully find the account's tokens.");
 
         var jsonVal = json.decode(response.body);
-        final accResponse = await http.get(Uri.parse(Customer.userInfo),
+        final accResponse = await http.get(Uri.parse(Driver.userInfo),
                                             headers: { "Content-Type": "application/json; charset=UTF-8", "authentication": jsonVal["accessToken"] });
         
         if ((accResponse.statusCode == 200) || (accResponse.statusCode == 201)) {
@@ -85,6 +82,7 @@ class AccountReader {
       }
       else {
         developer.log("Failed HTTP when logging in: ${response.statusCode}");
+
       }
       return result;
     }
@@ -143,8 +141,7 @@ class AccountReader {
         return jsonVal["accessToken"];
       }
       else {
-        developer.log("Failed HTTP when getting new Tokens: ${response.statusCode}");
-        developer.log("Refresh token: ${await TokenSaver().loadRefreshToken()}");
+        developer.log("Failed HTTP when getting new tokens: ${response.statusCode}");
         // TokenSaver().clear();
         return "";
       }
@@ -175,13 +172,13 @@ class AccountReader {
     }
 
     try {
-      final response = await toggleHttp(accessToken).timeout(const Duration(seconds: 10));
+      final response = await toggleHttp(accessToken).timeout(const Duration(seconds: 20));
       switch (response.statusCode) {
 
         case 200: case 201:
           result["status"] = true;
           result["body"] = json.decode(utf8.decode(response.bodyBytes));
-          break;
+          break; 
         
         case 401:
           if (!callExpired) {
@@ -202,7 +199,7 @@ class AccountReader {
     on TimeoutException catch (e, s) {
       developer.log("The request for $functionDetails took too long. S: $s");
     }
-    catch (e) { throw Exception("Failed code when trying to log in, at saved_data.dart. Error type: ${e.toString()}"); }
+    catch (e) { throw Exception("Failed code when trying to compiling $functionDetails. Error type: ${e.toString()}"); }
 
     return result;
   }

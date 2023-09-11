@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '/view/decoration.dart';
 import '/view_model/history_controller.dart';
 import '/view_model/account_controller.dart';
-import '/view/decoration.dart';
 
 
 
@@ -38,14 +38,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
         
             child: Column(
               children: [
+
+                Center(child: BigButton(label: "Chạy lại", onPressed: () async => preloadHistory(context.read<HistoryController>()), bold: true)),
+
                 ...(() {
-                  int listLength = context.read<HistoryController>().destinations.length;
+                  int listLength = context.read<HistoryController>().historyList.length;
                   List<Widget> result = [];
                 
                   for (int i = listLength - 1; i >= 0; i--) {
                     result.add(TripBox(
-                      destination: context.watch<HistoryController>().destinations[i],
-                      time: context.watch<HistoryController>().times[i],
+                      data: context.watch<HistoryController>().historyList[i],
                       accountController: widget.accountController
                     ));
                     result.add(const SizedBox(height: 15));
@@ -63,7 +65,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Stream<int> preloadHistory(historyController) async* {
     if (!loadOnce) {
       loadOnce = true;
-      await historyController.preload();
+      await historyController.load();
     }
   }
 }
@@ -73,13 +75,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
 class TripBox extends StatelessWidget {
   const TripBox({
     Key? key,
-    required this.destination,
-    required this.time,
-    required this.accountController,
+    required this.data,
+    required this.accountController
   }) : super(key: key);
 
-  final String destination;
-  final String time;
+  final Map<String, dynamic> data;
   final AccountController accountController;
 
   @override
@@ -89,7 +89,7 @@ class TripBox extends StatelessWidget {
       borderRadius: const BorderRadius.all(Radius.circular(15)),
       child: Container(
 
-        height: 90,
+        height: 120,
         color: Colors.amber.shade200,
         child: Stack(clipBehavior: Clip.antiAliasWithSaveLayer, children: [
 
@@ -101,12 +101,17 @@ class TripBox extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                destination,
+                data["pickup_address"] ?? "[Không có dữ liệu]",
                 style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.left,
               ),
               Text(
-                time,
+                data["dropoff_address"] ?? "[Không có dữ liệu]",
+                style: const TextStyle(fontSize: 16),
+                textAlign: TextAlign.left,
+              ),
+              Text(
+                readDateTime(data["dropoff_address"]),
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.left,
               )
@@ -120,5 +125,13 @@ class TripBox extends StatelessWidget {
     
       ),
     );
+  }
+
+
+  String readDateTime(value) {
+    DateTime read;
+    try { read = DateTime.parse(value); }
+    catch (e) { read = DateTime.now(); }
+    return "${read.day} / ${read.month} / ${read.year}";
   }
 }

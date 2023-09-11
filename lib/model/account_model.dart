@@ -8,7 +8,8 @@ class AccountModel {  // Singleton
     "role": "",
     "longitude": -1,
     "latitude": -1,
-    "is_Vip": false
+    "is_Vip": false,
+    "total_booking": 0
   };
 
   static final AccountModel _instance = AccountModel._internal();
@@ -27,7 +28,8 @@ class AccountModel {  // Singleton
       "role": "",
       "longitude": -1,
       "latitude": -1,
-      "is_Vip": false
+      "is_Vip": false,
+      "total_booking": 0
     };
   }
 }

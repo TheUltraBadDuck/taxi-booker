@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-
 import '/view_model/account_controller.dart';
+
 import '/view/decoration.dart';
+
 
 
 
@@ -34,31 +35,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: SafeArea( child: Stack( children: [
 
         // --------------------- Trang trí ---------------------
-        Positioned(top: -60, right: -60, child: circle(Colors.amber.shade600, 90)),
-        Positioned(top: 30, left: 90, right: 45, child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        Positioned(top: -120, left: 120, right: 120, child: circle(Colors.amber.shade600, 120)),
+        Positioned(top: 30, left: 90, right: 90, child: Column(
           children: [
-            Text( "Chào bạn!", textAlign: TextAlign.end,
+            Text( "Xin chào, tài xế!", textAlign: TextAlign.center,
               style: TextStyle(fontSize: 28, color: Colors.brown.shade900, fontWeight: FontWeight.bold)),
 
-            Text( "Hãy đăng ký để bắt đầu.", textAlign: TextAlign.end,
+            Text( "Hãy đăng ký để bắt đầu.", textAlign: TextAlign.center,
               style: TextStyle(fontSize: 24, color: Colors.brown.shade900, fontWeight: FontWeight.bold)),
           ]
         )),
 
-        Positioned(top: 120, left: -235, right: 30, child: Container(
+        Positioned(top: 150, left: -45, right: -30, child: Container(
           width: 710, height: 760,
           decoration: BoxDecoration(
             color: Colors.yellow.shade600,
-            borderRadius: const BorderRadius.all(Radius.circular(300))
+            borderRadius: const BorderRadius.all(Radius.circular(180))
           ),
         )),
 
-        Positioned(top: 150, left: -240, right: 40, child: Container(
-          width: 700, height: 700,
+        Positioned(top: 160, left: -35, right: -20, child: Container(
+          width: 700, height: 600,
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.all(Radius.circular(300))
+            borderRadius: BorderRadius.all(Radius.circular(180))
           ),
         )),
 
@@ -93,6 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
 
+
   Future<void> register() async {
     try {
       final status = await widget.accountController.updateRegister(usernameController.text, phonenumberController.text, passwordController.text);
@@ -110,4 +111,5 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 }
+
 

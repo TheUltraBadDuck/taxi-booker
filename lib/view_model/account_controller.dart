@@ -20,7 +20,7 @@ class AccountController with ChangeNotifier {
 
     final result = await AccountReader().toggleFunction((String token) async {
       print(token);
-      return http.get(Uri.parse(Customer.userInfo), headers: {
+      return http.get(Uri.parse(Driver.userInfo), headers: {
         "Content-Type": "application/json; charset=UTF-8",
         "authentication": token
       });

@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 
-import '/service/firebase_notification.dart';
-
-import '/view_model/account_controller.dart';
-
 import '/view/navigation/home_screen.dart' show HomeScreen;
 import '/view/navigation/history_screen.dart' show HistoryScreen;
 import '/view/navigation/profile_screen.dart' show ProfileScreen;
@@ -13,6 +9,8 @@ import '/view/navigation/profile_screen.dart' show ProfileScreen;
 import '/view/account/register_screen.dart' show RegisterScreen;
 import '/view/account/login_screen.dart' show LoginScreen;
 
+import '/view_model/account_controller.dart';
+import '/view/decoration.dart';
 
 
 
@@ -39,6 +37,8 @@ class _NavigationChangeState extends State<NavigationChange> {
   int bottomId = 0;             // Navigation
   List<Widget> _children = [];  // Navigation
 
+  bool logoutAble = true;
+
 
 
   @override
@@ -48,21 +48,20 @@ class _NavigationChangeState extends State<NavigationChange> {
       
       create: (_) {
         AccountController accountController = AccountController();
-
         _children = [
-          HomeScreen(accountController: accountController),
+          HomeScreen(accountController: accountController, setLogoutAble: (bool value) => setState(() => logoutAble = value)),
           HistoryScreen(accountController: accountController),
           ProfileScreen(accountController: accountController, onLogOut: () async {
-            setState(() {
-              bottomId = 0;
-              screenState = ScreenState.registerScreen;
-            });
-            await accountController.updateLogOut();
+            if (logoutAble) {
+              setState(() { bottomId = 0;
+                            screenState = ScreenState.registerScreen; });
+              await accountController.updateLogOut();
+            }
+            else {
+              warningModal(context, "Chuyến đi chưa kết thúc. Hãy tiếp tục chuyến đi của bạn.");
+            }
           })
         ];
-
-        FireBaseAPI.listenMessage();
-
         return accountController;
       },
 
@@ -95,7 +94,6 @@ class _NavigationChangeState extends State<NavigationChange> {
     
               
             case ScreenState.loginScreen:
-              
               return LoginScreen(
                 accountController: Provider.of<AccountController>(context),
                 onLogIn: () => setState(() => screenState = ScreenState.applicationScreens),
@@ -107,7 +105,7 @@ class _NavigationChangeState extends State<NavigationChange> {
               return Scaffold(
     
                 backgroundColor: Colors.yellow.shade100,
-                body: SafeArea(child: _children[bottomId]),
+                body: SafeArea(child: IndexedStack(index: bottomId, children: _children)),
     
                 bottomNavigationBar: BottomNavigationBar(
     
@@ -146,8 +144,8 @@ class _NavigationChangeState extends State<NavigationChange> {
   bool preloadOnce = false;
   Stream<int> preload(accountController) async* {
     if (!preloadOnce) {
-      await accountController.preload();
       preloadOnce = true;
+      await accountController.preload();
     }
   }
 }

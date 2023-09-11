@@ -6,7 +6,6 @@ import 'package:rxdart/rxdart.dart';
 
 
 
-
 class FireBaseAPI {
   static String? token = "";
   static FirebaseMessaging firebaseMessage = FirebaseMessaging.instance;
@@ -38,8 +37,9 @@ class FireBaseAPI {
   }
 
 
-  static void sendMessage({ String text = "Gửi thông tin từ khách hàng lên tài xế." }) {
-    FirebaseMessaging.instance.sendMessage(to: token, data: { "request": text });
+  static void sendMessage(String to, { String text = "Gửi thông tin từ khách hàng lên tài xế." }) {
+    developer.log("Send driver notification to customer.");
+    FirebaseMessaging.instance.sendMessage(to: to, data: { "request": text });
   }
 
 
