@@ -113,6 +113,30 @@ String distanceToString(int distance) {
 
 
 
-String formatDate(DateTime datetime) {
+String formatHour(DateTime datetime) {
   return "${datetime.hour} : ${datetime.minute}";
 }
+
+
+String readDateTime(value) {
+  DateTime read;
+  try { read = DateTime.parse(value); }
+  catch (e) { read = DateTime.now(); }
+  return "${read.day} / ${read.month} / ${read.year}";
+}
+
+
+String readHour(value) {
+  String result = "";
+  if (value.hour < 10) {
+    result += "0";
+  }
+  result += "${value.hour} : ";
+  if (value.minute < 10) {
+    result += "0";
+  }
+  result = "${value.minute}";
+  return result;
+}
+
+

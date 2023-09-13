@@ -58,6 +58,7 @@ class MapAPI {
 
   Future saveDriver() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
+    await sp.setString("map_API_driverId",    driverId);
     await sp.setString("map_API_driverName",  driverName);
     await sp.setString("map_API_driverPhone", driverPhonenumber);
     await sp.setDouble("map_API_driverLat",   driverLatLng.latitude);
@@ -121,6 +122,7 @@ class MapAPI {
     await sp.setInt("map_API_duration", 0);
     await sp.setString("map_API_bookingTime", DateTime.now().toString());
 
+    await sp.setString("map_API_driverId",    "");
     await sp.setString("map_API_driverName",  "");
     await sp.setString("map_API_driverPhone", "");
     await sp.setDouble("map_API_driverLat",   0.0);

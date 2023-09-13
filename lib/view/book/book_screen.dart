@@ -2,7 +2,7 @@ import 'dart:async';
 import "dart:developer" as developer;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_app_texting/view/book/before_taxi.dart';
+
 
 //import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -13,18 +13,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:location/location.dart';
 
-import '/view_model/account_controller.dart';
-import '/view_model/map_api_controller.dart';
+import '/service/firebase_service.dart' as noti;
 
-import 'after_search.dart';
-import '/view/book/after_taxi.dart';
-import 'before_search.dart';
+import '/view_model/account_viewmodel.dart';
+import '/view_model/map_api_viewmodel.dart';
+
+import '/view/book/before_search.dart';
+import '/view/book/after_search.dart';
+import '/view/book/before_taxi.dart';
 import '/view/book/during_taxi.dart';
+import '/view/book/after_taxi.dart';
 import '/view/book/schedule_taxi.dart';
 import '/view/decoration.dart';
 
 import '/general/function.dart';
-import '/service/notification.dart';
 
 
 
@@ -47,7 +49,7 @@ class BookScreen extends StatefulWidget {
     this.dropoffAddress = "",
     this.dropoffLatitude = 0.0,
     this.dropoffLongitude = 0.0,
-    required this.accountController,
+    required this.accountViewmodel,
     required this.duringTrip,
     required this.saveDuringTrip
   }) : super(key: key);
@@ -56,7 +58,7 @@ class BookScreen extends StatefulWidget {
   final String dropoffAddress;
   final double dropoffLatitude;
   final double dropoffLongitude;
-  final AccountController accountController;
+  final AccountViewmodel accountViewmodel;
   final bool duringTrip;
   final Function(bool) saveDuringTrip;
 
@@ -79,14 +81,14 @@ class _BookScreenState extends State<BookScreen> {
 
 
 
+  bool duringLoading = false;
+
   bool goodHour = true;
   bool goodWeather = true;
 
   // Thông tin tài xế
   bool driverPickingUp = false;
   bool loadTripOnce = false;
-
-  final Noti noti = Noti();
 
   late var listenLocation;
 
@@ -100,7 +102,6 @@ class _BookScreenState extends State<BookScreen> {
   void initState() {
     super.initState();
     location.enableBackgroundMode(enable: true);
-    noti.initialize();
   }
 
 
@@ -139,11 +140,11 @@ class _BookScreenState extends State<BookScreen> {
       body: ChangeNotifierProvider(
 
         create: (_) {
-          MapAPIController mapAPIController = MapAPIController();
+          MapAPIViewmodel mapAPIViewmodel = MapAPIViewmodel();
 
           // location.requestPermission().then((granted) {
           //   listenLocation = location.onLocationChanged.listen((LocationData currLocation) {
-          //     setState(() { mapAPIController.mapAPI.pickupLatLng = LatLng(currLocation.latitude!, currLocation.longitude!);
+          //     setState(() { mapAPIViewmodel.mapAPI.pickupLatLng = LatLng(currLocation.latitude!, currLocation.longitude!);
           //                 allowedNavigation = true; });
           //   });
           // }).catchError((e) {
@@ -153,11 +154,11 @@ class _BookScreenState extends State<BookScreen> {
 
           // // Lắng nghe định vị GPS
           listenLocation = location.onLocationChanged.listen((LocationData currLocation) {
-            mapAPIController.updatePickupLatLng(LatLng(currLocation.latitude!, currLocation.longitude!));
+            mapAPIViewmodel.updatePickupLatLng(LatLng(currLocation.latitude!, currLocation.longitude!));
             setState(() => allowedNavigation = true);
           });
 
-          return mapAPIController;
+          return mapAPIViewmodel;
         },
 
 
@@ -165,12 +166,12 @@ class _BookScreenState extends State<BookScreen> {
         
           Positioned(top: 0, bottom: 0, left: 0, right: 0, child: StreamBuilder<int>(
         
-            stream: _readDriver(context.read<MapAPIController>()),
+            stream: _readDriver(context.read<MapAPIViewmodel>()),
         
             builder: (BuildContext context, AsyncSnapshot<int> snapshot) => FlutterMap(
         
               mapController: mapController,
-              options: MapOptions(center: context.watch<MapAPIController>().mapAPI.pickupLatLng, zoom: 16.5),
+              options: MapOptions(center: context.watch<MapAPIViewmodel>().mapAPI.pickupLatLng, zoom: 16.5),
         
               nonRotatedChildren: [
                 RichAttributionWidget(
@@ -188,19 +189,19 @@ class _BookScreenState extends State<BookScreen> {
         
                 PolylineLayer(
                   polylines: [
-                    context.watch<MapAPIController>().mapAPI.s2ePolylines,
-                    if (bookState == BookState.duringTaxiArrival && !driverPickingUp) context.watch<MapAPIController>().mapAPI.d2sPolylines
+                    context.watch<MapAPIViewmodel>().mapAPI.s2ePolylines,
+                    if (bookState == BookState.duringTaxiArrival && !driverPickingUp) context.watch<MapAPIViewmodel>().mapAPI.d2sPolylines
                   ],
                 ),
         
                 MarkerLayer(
                   markers: [
                     if (allowedNavigation)
-                      Marker( point: context.watch<MapAPIController>().mapAPI.pickupLatLng, width: 20, height: 20, builder: (context) => const CustomerPoint() ),
+                      Marker( point: context.watch<MapAPIViewmodel>().mapAPI.pickupLatLng, width: 20, height: 20, builder: (context) => const CustomerPoint() ),
                     if (bookState != BookState.beforeSearch)
-                      Marker( point: context.watch<MapAPIController>().mapAPI.dropoffLatLng, width: 20, height: 20, builder: (context) => const DestiPoint() ),
+                      Marker( point: context.watch<MapAPIViewmodel>().mapAPI.dropoffLatLng, width: 20, height: 20, builder: (context) => const DestiPoint() ),
                     if ((bookState == BookState.duringTaxiArrival) && !driverPickingUp)
-                      Marker( point: context.watch<MapAPIController>().mapAPI.driverLatLng, width: 20, height: 20,  builder: (context) => const DriverPoint() )
+                      Marker( point: context.watch<MapAPIViewmodel>().mapAPI.driverLatLng, width: 20, height: 20,  builder: (context) => const DriverPoint() )
                   ],
                 )
         
@@ -214,90 +215,100 @@ class _BookScreenState extends State<BookScreen> {
 
               case BookState.beforeSearch:
                 return BeforeSearchBox(
-                  accountController: widget.accountController,
+                  duringLoading: duringLoading,
+                  accountViewmodel: widget.accountViewmodel,
                   vehicleID: vehicleID,
                   onSubmitted: (PickedData pickedData) async {
-                    context.read<MapAPIController>().updateDropoffAddr(pickedData.address);
-                    context.read<MapAPIController>().updateDropoffLatLng(LatLng(pickedData.latLong.latitude, pickedData.latLong.longitude));
-                    context.read<MapAPIController>().updatePickupAddr(
-                          await context.read<MapAPIController>().getAddr(context.read<MapAPIController>().mapAPI.pickupLatLng));
+                    context.read<MapAPIViewmodel>().updateDropoffAddr(pickedData.address);
+                    context.read<MapAPIViewmodel>().updateDropoffLatLng(LatLng(pickedData.latLong.latitude, pickedData.latLong.longitude));
+                    context.read<MapAPIViewmodel>().updatePickupAddr(
+                          await context.read<MapAPIViewmodel>().getAddr(context.read<MapAPIViewmodel>().mapAPI.pickupLatLng));
                     
-                    if (context.mounted) await context.read<MapAPIController>().updateS2EPolyline(vehicleID: vehicleID);
+                    if (context.mounted) await context.read<MapAPIViewmodel>().updateS2EPolyline(vehicleID: vehicleID);
                     await saveBookState(BookState.afterSearch);
-                    setState(() => mapController.move(context.read<MapAPIController>().mapAPI.pickupLatLng, 16));
+                    setState(() => mapController.move(context.read<MapAPIViewmodel>().mapAPI.pickupLatLng, 16));
                   }
                 );
 
               case BookState.afterSearch:
                 return AfterSearchBox(
-                  accountController: widget.accountController,
+                  accountViewmodel: widget.accountViewmodel,
                   vehicleID: vehicleID,
-                  mapAPIController: context.watch<MapAPIController>(),
+                  mapAPIViewmodel: context.watch<MapAPIViewmodel>(),
 
                   onPressCancel: () async => await saveBookState(BookState.beforeSearch),
                   
                   onPressOK: (bool selectingDate) async {
                     if (selectingDate) {
-                      noti.showBoxWithTimes("Đã đến giờ khởi hành!", "Hãy chuẩn bị mọi thứ trước khi đi.", context.read<MapAPIController>().mapAPI.bookingTime);
+                      noti.showBoxWithTimes("Đã đến giờ khởi hành!", "Hãy chuẩn bị mọi thứ trước khi đi.", context.read<MapAPIViewmodel>().mapAPI.bookingTime);
                       await saveBookState(BookState.scheduleTaxiArrival);
                     }
                     else {
-                      if (context.mounted) await context.read<MapAPIController>().postBookingRequest(widget.accountController.account.map["phone"], widget.vehicleID);
+                      if (context.mounted) await context.read<MapAPIViewmodel>().postBookingRequest(widget.accountViewmodel.account.map["phone"], vehicleID);
                       await saveBookState(BookState.beforeTaxiArrival);
                     }
-                    if (context.mounted) await context.read<MapAPIController>().saveCustomer();
+                    if (context.mounted) await context.read<MapAPIViewmodel>().saveCustomer();
                     await widget.saveDuringTrip(true);
                   },
 
                   onChangeVehicleLeft: () => setState( () {
-                    vehicleID--;
-                    context.read<MapAPIController>().updatePrice(
-                      getPrice(context.read<MapAPIController>().mapAPI.distance, vehicleID, goodHour: goodHour, goodWeather: goodWeather)
+                    setState(() => vehicleID--);
+                    context.read<MapAPIViewmodel>().updatePrice(
+                      getPrice(context.read<MapAPIViewmodel>().mapAPI.distance, vehicleID, goodHour: goodHour, goodWeather: goodWeather)
                     );
                   }),
                   onChangeVehicleRight: () => setState( () {
-                    vehicleID++;
-                    context.read<MapAPIController>().updatePrice(
-                      getPrice(context.read<MapAPIController>().mapAPI.distance, vehicleID, goodHour: goodHour, goodWeather: goodWeather)
+                    setState(() => vehicleID++);
+                    context.read<MapAPIViewmodel>().updatePrice(
+                      getPrice(context.read<MapAPIViewmodel>().mapAPI.distance, vehicleID, goodHour: goodHour, goodWeather: goodWeather)
                     );
                   }),
 
-                  onChangeTimeForVip: (int hour, int minute) => context.read<MapAPIController>().updateDatetime(hour, minute)
+                  onChangeTimeForVip: (int hour, int minute) => context.read<MapAPIViewmodel>().updateDatetime(hour, minute)
                 );
 
               case BookState.beforeTaxiArrival:
                 return BeforeTaxiTrip(
-                  accountController: widget.accountController,
+                  accountViewmodel: widget.accountViewmodel,
                   vehicleID: vehicleID,
-                  mapAPIController: context.watch<MapAPIController>()
+                  mapAPIViewmodel: context.watch<MapAPIViewmodel>(),
+                  onCancel: () async {
+                    if (await context.read<MapAPIViewmodel>().cancelBookingRequest()) {
+                      await widget.saveDuringTrip(false);
+                      await saveBookState(BookState.beforeSearch);
+                      if (context.mounted) await context.read<MapAPIViewmodel>().clearAll();
+                      driverFoundTimer?.cancel();
+                      setState(() => loadDriverFoundTimerOnce = false);
+                    }
+                  }
                 );
 
               case BookState.duringTaxiArrival:
                 return DuringTaxiTrip(
-                  accountController: widget.accountController,
+                  accountViewmodel: widget.accountViewmodel,
                   vehicleID: vehicleID,
-                  mapAPIController: context.watch<MapAPIController>()
+                  mapAPIViewmodel: context.watch<MapAPIViewmodel>()
                 );
 
               case BookState.afterTaxiArrival:
                 return AfterTaxiTrip(
-                  accountController: widget.accountController,
+                  accountViewmodel: widget.accountViewmodel,
                   onRated:   (int star) async {
                     await widget.saveDuringTrip(false);
-                    if (context.mounted) await context.read<MapAPIController>().rateDriver(star);
-                    if (context.mounted) await context.read<MapAPIController>().clearAll();
+                    if (context.mounted) await context.read<MapAPIViewmodel>().rateDriver(star);
+                    if (context.mounted) await context.read<MapAPIViewmodel>().clearAll();
                     if (context.mounted) Navigator.pop(context);
                   },
                   onIgnored: () async {
                     await widget.saveDuringTrip(false);
-                    if (context.mounted) await context.read<MapAPIController>().clearAll();
+                    if (context.mounted) await context.read<MapAPIViewmodel>().clearAll();
                     if (context.mounted) Navigator.pop(context);
                   }
                 );
 
               case BookState.scheduleTaxiArrival:
                 return ScheduleTaxiTrip(
-                  accountController: widget.accountController,
+                  accountViewmodel: widget.accountViewmodel,
                   onReturn: () async {
                     if (context.mounted) Navigator.pop(context);
                   }
@@ -321,7 +332,7 @@ class _BookScreenState extends State<BookScreen> {
   bool loadDriverFoundTimerOnce = false;
 
 
-  Stream<int> _readDriver(mapAPIController) async* {
+  Stream<int> _readDriver(mapAPIViewmodel) async* {
     
     if (!loadTripOnce) {
       loadTripOnce = true;
@@ -336,15 +347,15 @@ class _BookScreenState extends State<BookScreen> {
           case BookState.scheduleTaxiArrival:
             developer.log(" > Scheduled taxi arrival.");
 
-            final newBookingTime = await mapAPIController.loadBookingTime();
+            final newBookingTime = await mapAPIViewmodel.loadBookingTime();
             final timeDist = newBookingTime.compareTo(DateTime.now());
 
             if (timeDist < 0) {                // Đã đến hoặc đã qua thời điểm cần đặt
-              await mapAPIController.loadCustomer();
+              await mapAPIViewmodel.loadCustomer();
               await saveBookState(BookState.beforeTaxiArrival);
               setState(() {
                 allowedNavigation = true;
-                mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
+                mapController.move(mapAPIViewmodel.mapAPI.pickupLatLng, 16);
               });
             }
             break;
@@ -352,28 +363,28 @@ class _BookScreenState extends State<BookScreen> {
 
           case BookState.beforeTaxiArrival:
             developer.log(" > Before taxi arrival.");
-            await mapAPIController.loadCustomer();
+            await mapAPIViewmodel.loadCustomer();
             setState(() {
               allowedNavigation = true;
-              mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
+              mapController.move(mapAPIViewmodel.mapAPI.pickupLatLng, 16);
             });
             break;
 
           
           case BookState.duringTaxiArrival:
             developer.log(" > During taxi arrival.");
-            await mapAPIController.loadCustomer();
-            await mapAPIController.loadDriver();
+            await mapAPIViewmodel.loadCustomer();
+            await mapAPIViewmodel.loadDriver();
             setState(() {
               allowedNavigation = true;
-              mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
+              mapController.move(mapAPIViewmodel.mapAPI.pickupLatLng, 16);
             });
             break;
           
 
           default:
             developer.log(" > Invalid taxi arrival. State: ${bookState.name}.");
-            await mapAPIController.clearAll();
+            await mapAPIViewmodel.clearAll();
             await widget.saveDuringTrip(false);
             await saveBookState(BookState.beforeSearch);
             break;
@@ -389,21 +400,24 @@ class _BookScreenState extends State<BookScreen> {
         // Cập nhật vị trí cần đến
         if (widget.dropoffAddress.isNotEmpty) {
           try {
+            setState(() => duringLoading = true);
             final currLocation = await location.getLocation();
             final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
             if (mounted) {
-              mapAPIController.updatePickupLatLng(newLocation);
-              mapAPIController.updateDropoffLatLng(LatLng(widget.dropoffLatitude, widget.dropoffLongitude));
-              mapAPIController.updateDropoffAddr(widget.dropoffAddress);
-              await mapAPIController.updateS2EPolyline(vehicleID: vehicleID);
+              mapAPIViewmodel.updatePickupLatLng(newLocation);
+              mapAPIViewmodel.updatePickupAddr(await mapAPIViewmodel.getAddr(newLocation));
+              mapAPIViewmodel.updateDropoffLatLng(LatLng(widget.dropoffLatitude, widget.dropoffLongitude));
+              mapAPIViewmodel.updateDropoffAddr(widget.dropoffAddress);
+              await mapAPIViewmodel.updateS2EPolyline(vehicleID: vehicleID);
               await saveBookState(BookState.afterSearch);
-              setState(() { mapController.move(mapAPIController.mapAPI.pickupLatLng, 16);
+              setState(() { mapController.move(mapAPIViewmodel.mapAPI.pickupLatLng, 16);
                             allowedNavigation = true; });
             }
           }
           catch (e) {
             developer.log("ERRRORRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR. Error type: $e");
           }
+          setState(() => duringLoading = false);
         }
       }
     }
@@ -416,8 +430,8 @@ class _BookScreenState extends State<BookScreen> {
       patchCustomerTimer = Timer.periodic(const Duration(seconds: 10), (timerRunning) async {
         final currLocation = await location.getLocation();
         print("COORD! ${currLocation.latitude}, ${currLocation.longitude}");
-        mapAPIController.updatePickupLatLng(LatLng(currLocation.latitude!, currLocation.longitude!));
-        await mapAPIController.patchPickupLatLng();
+        mapAPIViewmodel.updatePickupLatLng(LatLng(currLocation.latitude!, currLocation.longitude!));
+        await mapAPIViewmodel.patchPickupLatLng();
       });
     }
 
@@ -429,24 +443,24 @@ class _BookScreenState extends State<BookScreen> {
         driverFoundTimer = Timer.periodic(const Duration(seconds: 10), (timerRunning) async {
 
           if (mounted) {
-            if (await mapAPIController.getDriverLocation()) {
+            if (await mapAPIViewmodel.getDriverLocation()) {
 
-              await mapAPIController.saveDriver();
+              await mapAPIViewmodel.saveDriver();
 
               if (bookState == BookState.beforeTaxiArrival) {
                 await saveBookState(BookState.duringTaxiArrival);
-                await mapAPIController.updateD2SPolyline();
+                await mapAPIViewmodel.updateD2SPolyline();
               }
               else if (bookState == BookState.duringTaxiArrival) {
 
                 // Cập nhật nếu gặp được tài xế
-                if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.driverLatLng) < 10e-7 && !driverPickingUp) {
+                if (getDescrateDistanceSquare(mapAPIViewmodel.mapAPI.pickupLatLng, mapAPIViewmodel.mapAPI.driverLatLng) < 10e-7 && !driverPickingUp) {
                   setState(() => driverPickingUp = true);
-                  noti.showBox("Taxi đã đến", "Hãy bắt đầu hành trình đi đến nơi cần đến nào!");
+                  noti.showNormalBox("Taxi đã đến", "Hãy bắt đầu hành trình đi đến nơi cần đến nào!");
                 }
 
                 // Cập nhật nếu đến đích
-                if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.dropoffLatLng) < 10e-7) {
+                if (getDescrateDistanceSquare(mapAPIViewmodel.mapAPI.pickupLatLng, mapAPIViewmodel.mapAPI.dropoffLatLng) < 10e-7) {
                   await saveBookState(BookState.afterTaxiArrival);
                 }
               }
@@ -463,22 +477,26 @@ class _BookScreenState extends State<BookScreen> {
 
 
   Future<void> saveBookState(BookState value) async {
-    developer.log("[Save bookstate] Save $value");
+    developer.log("[Save bookstate] Save $value. Save vehicle type: $vehicleID");
     SharedPreferences sp = await SharedPreferences.getInstance();
     await sp.setInt("bookState", value.index);
+    await sp.setInt("vehicleID", vehicleID);
     setState(() => bookState = value);
   }
 
   Future<void> loadBookState() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
-    setState(() => bookState = BookState.values[sp.getInt("bookState")!]);
-    developer.log("[Load bookstate] Load $bookState");
+    int temp1 = sp.getInt("bookState") ?? 0;
+    int temp2 = sp.getInt("vehicleID") ?? vehicleID;
+    setState(() { bookState = BookState.values[temp1]; 
+                  vehicleID = temp2; });
+    developer.log("[Load bookstate] Load $bookState. Load vehicle type: $vehicleID");
   }
 }
 
 
 
-            // await mapAPIController.setTemp(<String, dynamic>{
+            // await mapAPIViewmodel.setTemp(<String, dynamic>{
             //   "pickup_address": "Hẻm 541 Đường Ðiện Biên Phủ, Phường 3, Quận 3, Thành phố Hồ Chí Minh, 72406, Việt Nam",
             //   "dropoff_address": "Cho Ben Thanh, Ho Chi Minh City, HC, Vietnam",
             //   "pickup_latitude": 10.77045,

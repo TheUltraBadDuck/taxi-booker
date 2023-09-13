@@ -4,15 +4,23 @@
 import 'package:flutter/material.dart';
 import 'package:location_picker_flutter_map/location_picker_flutter_map.dart';
 
-import '/view_model/account_controller.dart';
+import '../../view_model/account_viewmodel.dart';
 
 
 
 class BeforeSearchBox extends StatefulWidget {
-  const BeforeSearchBox({ Key? key, required this.accountController, required this.vehicleID, required this.onSubmitted }) : super(key: key);
-  final AccountController accountController;
+  const BeforeSearchBox({
+    Key? key,
+    required this.accountViewmodel,
+    required this.vehicleID,
+    required this.onSubmitted,
+    required this.duringLoading
+  }) : super(key: key);
+
+  final AccountViewmodel accountViewmodel;
   final int vehicleID;
   final Function(PickedData value) onSubmitted;
+  final bool duringLoading;
 
   @override
   State<BeforeSearchBox> createState() => _BeforeSearchBoxState();
@@ -61,7 +69,12 @@ class _BeforeSearchBoxState extends State<BeforeSearchBox> {
         zoomButtonsBackgroundColor: Colors.amber.shade600
 
 
-      )
+      ),
+
+
+      if (widget.duringLoading) Positioned(top: 0, bottom: 0, left: 0, right: 0, child: Container(
+        decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5))
+      ))
 
 
       // --------------------  Hộp hiển thị các gợi ý vị trí cần đến (dropoff) -------------------- 

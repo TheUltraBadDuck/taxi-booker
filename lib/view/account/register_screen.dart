@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '/view_model/account_controller.dart';
+import '../../view_model/account_viewmodel.dart';
 import '/view/decoration.dart';
 
 
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({ Key? key, required this.onLogIn, required this.switchToLogin, required this.accountController }) : super(key: key);
+  const RegisterScreen({ Key? key, required this.onLogIn, required this.switchToLogin, required this.accountViewmodel }) : super(key: key);
   final VoidCallback onLogIn;
   final VoidCallback switchToLogin;
-  final AccountController accountController;
+  final AccountViewmodel accountViewmodel;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -95,7 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> register() async {
     try {
-      final status = await widget.accountController.updateRegister(usernameController.text, phonenumberController.text, passwordController.text);
+      final status = await widget.accountViewmodel.updateRegister(usernameController.text, phonenumberController.text, passwordController.text);
       if (status) {
         widget.onLogIn();
       }

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 import '/view/decoration.dart';
-import '/view_model/account_controller.dart';
+import '../../view_model/account_viewmodel.dart';
 
 
 
@@ -11,8 +11,8 @@ typedef StringCallback = Function(String value);
 
 
 class AfterTaxiTrip extends StatefulWidget {
-  const AfterTaxiTrip({ Key? key, required this.accountController, required this.onRated, required this.onIgnored }) : super(key: key);
-  final AccountController accountController;
+  const AfterTaxiTrip({ Key? key, required this.accountViewmodel, required this.onRated, required this.onIgnored }) : super(key: key);
+  final AccountViewmodel accountViewmodel;
   final Function(int) onRated;
   final VoidCallback onIgnored;
 

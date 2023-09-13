@@ -1,9 +1,9 @@
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_app_texting/view_model/map_api_controller.dart';
 
+import '/view_model/account_viewmodel.dart';
+import '/view_model/map_api_viewmodel.dart';
 import '/view/decoration.dart';
-import '/view_model/account_controller.dart';
 import '/general/function.dart';
 
 
@@ -14,14 +14,14 @@ import '/general/function.dart';
 class DuringTaxiTrip extends StatefulWidget {
   const DuringTaxiTrip({
     Key? key,
-    required this.accountController,
+    required this.accountViewmodel,
     required this.vehicleID,
-    required this.mapAPIController
+    required this.mapAPIViewmodel
   }) : super(key: key);
 
-  final AccountController accountController;
+  final AccountViewmodel accountViewmodel;
   final int vehicleID;
-  final MapAPIController mapAPIController;
+  final MapAPIViewmodel mapAPIViewmodel;
 
 
   @override
@@ -41,11 +41,11 @@ class _DuringTaxiTripState extends State<DuringTaxiTrip> {
       // -------------------- Thanh vị trí -------------------- 
       Positioned(top: 15, left: 15, right: 15, child: PositionBox(
         icon: Icon(Icons.add_circle, color: Colors.deepOrange.shade900),
-        position: widget.mapAPIController.mapAPI.pickupAddr
+        position: widget.mapAPIViewmodel.mapAPI.pickupAddr
       )),
       Positioned(top: 75, left: 15, right: 15, child: PositionBox(
         icon: Icon(Icons.place, color: Colors.deepOrange.shade900),
-        position: widget.mapAPIController.mapAPI.dropoffAddr
+        position: widget.mapAPIViewmodel.mapAPI.dropoffAddr
       )),
       Positioned(top: 56, left: 44, child: Container(
         width: 2,
@@ -89,7 +89,7 @@ class _DuringTaxiTripState extends State<DuringTaxiTrip> {
             Expanded(child: InfoBox(
               height: 75,
               icon: Icon(Icons.wallet, color: Colors.amber.shade500),
-              detail: "${getPrice(widget.mapAPIController.mapAPI.distance, widget.vehicleID)} Đ"
+              detail: "${getPrice(widget.mapAPIViewmodel.mapAPI.distance, widget.vehicleID)} Đ"
             )),
         
             const SizedBox(width: 10),
@@ -97,7 +97,7 @@ class _DuringTaxiTripState extends State<DuringTaxiTrip> {
             Expanded(child: InfoBox(
               height: 75,
               icon: Icon(Icons.timelapse, color: Colors.amber.shade500),
-              detail: durationToString(widget.mapAPIController.mapAPI.duration)
+              detail: durationToString(widget.mapAPIViewmodel.mapAPI.duration)
             )),
         
             const SizedBox(width: 10),
@@ -105,7 +105,7 @@ class _DuringTaxiTripState extends State<DuringTaxiTrip> {
             Expanded(child: InfoBox(
               height: 75,
               icon: Icon(Icons.location_on, color: Colors.amber.shade500),
-              detail: distanceToString(widget.mapAPIController.mapAPI.distance)
+              detail: distanceToString(widget.mapAPIViewmodel.mapAPI.distance)
             ))
           ]),
 
@@ -121,7 +121,7 @@ class _DuringTaxiTripState extends State<DuringTaxiTrip> {
             Expanded(child: InfoBox(
               height: 75,
               icon: Icon(Icons.person, color: Colors.amber.shade500),
-              detail: widget.mapAPIController.mapAPI.driverName
+              detail: widget.mapAPIViewmodel.mapAPI.driverName
             )),
             
             const SizedBox(width: 10),
@@ -129,7 +129,7 @@ class _DuringTaxiTripState extends State<DuringTaxiTrip> {
             Expanded(child: InfoBox(
               height: 75,
               icon: Icon(Icons.phone, color: Colors.amber.shade500),
-              detail: widget.mapAPIController.mapAPI.driverPhonenumber
+              detail: widget.mapAPIViewmodel.mapAPI.driverPhonenumber
             ))
           ])
 

@@ -4,7 +4,7 @@
 // const String users            = "http://thaivanthien.site/api/users";
 
 
-const String headPoint = "192.168.1.2";  // Giả lập xãi địa chỉ IP riêng thay vì localhost
+const String headPoint = "10.126.1.88";  // Giả lập xãi địa chỉ IP riêng thay vì localhost
 
 class Auth {
   static const String port = "3001";
@@ -31,6 +31,7 @@ class Customer {
   static const String setDriverRate = "http://$headPoint:$port/rateDriver";
   static const String getDriverRate = "http://$headPoint:$port/driverRate";
   static const String getDriverLocation = "http://$headPoint:$port/getDriverLocationByBR";
+  static const String cancelRequest = "http://$headPoint:$port/cancelRequest";
 }
 
 

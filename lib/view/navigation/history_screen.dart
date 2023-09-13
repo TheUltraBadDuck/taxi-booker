@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '/view_model/history_controller.dart';
-import '/view_model/account_controller.dart';
+import '/general/function.dart';
+import '/view_model/history_viewmodel.dart';
+import '/view_model/account_viewmodel.dart';
 import '/view/decoration.dart';
 
 
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({ Key? key, required this.accountController }) : super(key: key);
-  final AccountController accountController;
+  const HistoryScreen({ Key? key, required this.accountViewmodel }) : super(key: key);
+  final AccountViewmodel accountViewmodel;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -24,12 +25,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
 
-    return ChangeNotifierProvider<HistoryController>(
+    return ChangeNotifierProvider<HistoryViewmodel>(
 
-      create: (_) => HistoryController(),
+      create: (_) => HistoryViewmodel(),
       builder: (BuildContext context, Widget? child) => StreamBuilder<int> (
           
-        stream: preloadHistory(context.read<HistoryController>()),
+        stream: preloadHistory(context.read<HistoryViewmodel>()),
       
         builder: (BuildContext context, AsyncSnapshot<int> snapshot) => SingleChildScrollView(
           child: Container(
@@ -39,16 +40,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
             child: Column(
               children: [
 
-                Center(child: BigButton(label: "Chạy lại", onPressed: () async => preloadHistory(context.read<HistoryController>()), bold: true)),
+                Center(child: BigButton(label: "Chạy lại", onPressed: () async => context.read<HistoryViewmodel>().load(), bold: true)),
+
+                const SizedBox(height: 15),
 
                 ...(() {
-                  int listLength = context.read<HistoryController>().historyList.length;
+                  int listLength = context.read<HistoryViewmodel>().historyList.length;
                   List<Widget> result = [];
                 
                   for (int i = listLength - 1; i >= 0; i--) {
                     result.add(TripBox(
-                      data: context.watch<HistoryController>().historyList[i],
-                      accountController: widget.accountController
+                      data: context.watch<HistoryViewmodel>().historyList[i],
+                      accountViewmodel: widget.accountViewmodel
                     ));
                     result.add(const SizedBox(height: 15));
                   }
@@ -62,10 +65,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Stream<int> preloadHistory(historyController) async* {
+  Stream<int> preloadHistory(historyViewmodel) async* {
     if (!loadOnce) {
       loadOnce = true;
-      await historyController.load();
+      await historyViewmodel.load();
     }
   }
 }
@@ -76,11 +79,11 @@ class TripBox extends StatelessWidget {
   const TripBox({
     Key? key,
     required this.data,
-    required this.accountController
+    required this.accountViewmodel
   }) : super(key: key);
 
   final Map<String, dynamic> data;
-  final AccountController accountController;
+  final AccountViewmodel accountViewmodel;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +92,7 @@ class TripBox extends StatelessWidget {
       borderRadius: const BorderRadius.all(Radius.circular(15)),
       child: Container(
 
-        height: 120,
+        height: 150,
         color: Colors.amber.shade200,
         child: Stack(clipBehavior: Clip.antiAliasWithSaveLayer, children: [
 
@@ -97,19 +100,21 @@ class TripBox extends StatelessWidget {
           Positioned(top: -20, bottom: -20, right: -35, child: circle(Colors.yellow.shade100, 70)),
           Positioned(top: -15, bottom: -15, right: -30, child: circle(Colors.white, 60)),
           Positioned(top: 5, bottom: 5, left: 15, right: 105, child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                data["pickup_address"] ?? "[Không có dữ liệu]",
+                trimText(data["pickup_address"] ?? "[Không có dữ liệu]"),
                 style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.left,
               ),
+              const HorizontalLine(),
               Text(
-                data["dropoff_address"] ?? "[Không có dữ liệu]",
+                trimText(data["dropoff_address"] ?? "[Không có dữ liệu]"),
                 style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.left,
               ),
+              const HorizontalLine(),
               Text(
                 readDateTime(data["dropoff_address"]),
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
@@ -126,13 +131,11 @@ class TripBox extends StatelessWidget {
       ),
     );
   }
+}
 
 
-  String readDateTime(value) {
-    DateTime read;
-    try { read = DateTime.parse(value); }
-    catch (e) { read = DateTime.now(); }
-    return "${read.day} / ${read.month} / ${read.year}";
-  }
+
+String trimText(String value) {
+  return (value.length > 70) ? "${value.substring(0, 50)}..." : value;
 }
 

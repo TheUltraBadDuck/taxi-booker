@@ -1,9 +1,9 @@
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_app_texting/view_model/map_api_controller.dart';
 
+import '/view_model/account_viewmodel.dart';
+import '/view_model/map_api_viewmodel.dart';
 import '/view/decoration.dart';
-import '/view_model/account_controller.dart';
 import '/general/function.dart';
 
 
@@ -14,9 +14,9 @@ class AfterSearchBox extends StatefulWidget {
   const AfterSearchBox({
 
     Key? key,
-    required this.accountController,
+    required this.accountViewmodel,
     required this.vehicleID,
-    required this.mapAPIController,
+    required this.mapAPIViewmodel,
 
     required this.onPressCancel,
     required this.onPressOK,
@@ -27,9 +27,9 @@ class AfterSearchBox extends StatefulWidget {
 
   }) : super(key: key);
 
-  final AccountController accountController;
+  final AccountViewmodel accountViewmodel;
   final int vehicleID;
-  final MapAPIController mapAPIController;
+  final MapAPIViewmodel mapAPIViewmodel;
 
   final VoidCallback onPressCancel;
   final Function(bool) onPressOK;
@@ -61,11 +61,11 @@ class _AfterSearchBoxState extends State<AfterSearchBox> {
       // --------------------  Thanh vị trí -------------------- 
       Positioned(top: 15, left: 15, right: 15, child: PositionBox(
         icon: Icon(Icons.add_circle, color: Colors.deepOrange.shade900),
-        position: widget.mapAPIController.mapAPI.pickupAddr
+        position: widget.mapAPIViewmodel.mapAPI.pickupAddr
       )),
       Positioned(top: 75, left: 15, right: 15, child: PositionBox(
         icon: Icon(Icons.place, color: Colors.deepOrange.shade900),
-        position: widget.mapAPIController.mapAPI.dropoffAddr
+        position: widget.mapAPIViewmodel.mapAPI.dropoffAddr
       )),
       Positioned(top: 80, right: 30, child: IconButton(
         icon: const Icon(Icons.close, size: 28),
@@ -114,11 +114,11 @@ class _AfterSearchBoxState extends State<AfterSearchBox> {
             Expanded(child: Column(children: [
               InfoText( title: "Loại xe: ", detail: getVehicleName(widget.vehicleID) ),
               const HorizontalLine(),
-              InfoText( title: "Giá thành: ", detail: "${widget.mapAPIController.mapAPI.price} VNĐ" ),
+              InfoText( title: "Giá thành: ", detail: "${widget.mapAPIViewmodel.mapAPI.price} VNĐ" ),
               const HorizontalLine(),
-              InfoText( title: "Thời gian: ", detail: durationToString(widget.mapAPIController.mapAPI.duration) ),
+              InfoText( title: "Thời gian: ", detail: durationToString(widget.mapAPIViewmodel.mapAPI.duration) ),
               const HorizontalLine(),
-              InfoText( title: "Quãng đường: ", detail: distanceToString(widget.mapAPIController.mapAPI.distance) ),
+              InfoText( title: "Quãng đường: ", detail: distanceToString(widget.mapAPIViewmodel.mapAPI.distance) ),
             ])),
 
             const SizedBox(width: 15),
@@ -133,6 +133,7 @@ class _AfterSearchBoxState extends State<AfterSearchBox> {
             width: MediaQuery.of(context).size.width,
             height: 60,
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+
               BigButton(
                 label: "Đặt ngay!",
                 width: 170,
@@ -140,14 +141,22 @@ class _AfterSearchBoxState extends State<AfterSearchBox> {
                 color: Colors.amber.shade700,
                 onPressed: () async => widget.onPressOK(selectingDate)
               ),
+
               BigButton(
                 label: currTimeStr,
                 width: 170,
                 bold: true,
-                color: widget.accountController.account.map["is_Vip"] ? Colors.amber.shade700 : Colors.brown.shade700,
-                onPressed: () async => pickTime(),
-                pressable: true // widget.accountController.account.map["is_Vip"]
-              ),
+                color: widget.accountViewmodel.account.map["is_Vip"] ? Colors.amber.shade700 : Colors.brown.shade700,
+                onPressed: () async {
+                  if (widget.accountViewmodel.account.map["is_Vip"]) {
+                    await pickTime();
+                  }
+                  else {
+                    warningModal(context, "Bạn hãy đặt thêm nhiều cuốc nữa để mở khoá tính năng này.");
+                  }
+                }
+              )
+
             ])
 
           )
@@ -159,7 +168,7 @@ class _AfterSearchBoxState extends State<AfterSearchBox> {
   }
 
 
-  Future pickTime() async {
+  Future<void> pickTime() async {
 
     TimeOfDay? timeOfDay = await showTimePicker(
       context: context,
@@ -179,7 +188,7 @@ class _AfterSearchBoxState extends State<AfterSearchBox> {
       widget.onChangeTimeForVip(timeOfDay?.hour ?? 0, timeOfDay?.minute ?? 0);
       setState(() {
         selectingDate = true;
-        currTimeStr = "${timeOfDay?.hour} : ${timeOfDay?.minute}";
+        currTimeStr = readHour(timeOfDay);
     });
     }
   }

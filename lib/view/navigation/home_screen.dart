@@ -2,12 +2,14 @@ import "dart:developer" as developer;
 
 import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
+
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 
-import '/view_model/history_controller.dart';
-import '/view_model/account_controller.dart';
+import '/general/function.dart';
+import '/view_model/history_viewmodel.dart';
+import '/view_model/account_viewmodel.dart';
 
 import '/view/decoration.dart';
 import '/view/book/book_screen.dart' show BookScreen;
@@ -16,8 +18,8 @@ import '/view/book/book_screen.dart' show BookScreen;
 
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({ Key? key, required this.accountController, required this.setLogoutAble }) : super(key: key);
-  final AccountController accountController;
+  const HomeScreen({ Key? key, required this.accountViewmodel, required this.setLogoutAble }) : super(key: key);
+  final AccountViewmodel accountViewmodel;
   final Function(bool) setLogoutAble;
 
   @override
@@ -33,17 +35,18 @@ class _HomeScreenState extends State<HomeScreen> {
   bool loadOnce = false;
 
   bool duringTrip = false;
+  bool duringLoading = true;
 
 
 
   @override
   Widget build(BuildContext context) {
 
-    return ChangeNotifierProvider<HistoryController>(
-        create: (_) => HistoryController(),
+    return ChangeNotifierProvider<HistoryViewmodel>(
+        create: (_) => HistoryViewmodel(),
         builder: (BuildContext context, Widget? child) => StreamBuilder<int> (
           
-        stream: preloadDuringTrip(context.watch<HistoryController>()),
+        stream: preloadDuringTrip(context.read<HistoryViewmodel>()),
       
         builder: (BuildContext context, AsyncSnapshot<int> snapshot) => SingleChildScrollView(
           
@@ -96,15 +99,20 @@ class _HomeScreenState extends State<HomeScreen> {
       
                 Positioned( top: 60, left: 0, right: 0, child: Center(
                   child: Text(
-                    widget.accountController.account.map["full_name"],
+                    widget.accountViewmodel.account.map["full_name"],
                     style: const TextStyle( fontSize: 32, fontWeight: FontWeight.bold),
                   )
                 )),
     
                 
       
-                ...(duringTrip ? duringTripScreen() : notDuringTripScreen(context.watch<HistoryController>()))
-                
+                ...(duringTrip ? duringTripScreen() : notDuringTripScreen(context.watch<HistoryViewmodel>())),
+
+
+
+                if (duringLoading) Positioned(top: 0, bottom: 0, left: 0, right: 0, child: Container(
+                  decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5))
+                ))
               ],
             ),
           ),
@@ -114,12 +122,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  Stream<int> preloadDuringTrip(historyController) async* {
+  Stream<int> preloadDuringTrip(historyViewmodel) async* {
     if (!loadOnce) {
       loadOnce = true;
       developer.log("Preload during trip.");
       await loadDuringTrip();
-      await historyController.preload();
+      await historyViewmodel.load();
+      duringLoading = false;
     }
   }
 
@@ -127,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
   
 
 
-  List<Widget> notDuringTripScreen(historyController) {
+  List<Widget> notDuringTripScreen(historyViewmodel) {
     return [
       // --------------------- Chọn xe ---------------------
       Positioned( top: 130, left: 0, right: 0, child: Column(children: [
@@ -162,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Positioned( top: 375, left: 30, right: 30, child: Column(
         children: [
           ...(() {
-            int listLength = historyController.historyList.length;
+            int listLength = historyViewmodel.historyList.length;
             List<Widget> result = [];
 
             int count = 0;
@@ -174,11 +183,11 @@ class _HomeScreenState extends State<HomeScreen> {
               else {
                 result.add(DestinationButton(
                   vehicleID: vehicleID,
-                  dropoffAddress:   historyController.historyList[i]["dropoff_address"],
-                  dropoffLatitude:  historyController.historyList[i]["dropoff_latitude"],
-                  dropoffLongitude: historyController.historyList[i]["dropoff_longitude"],
-                  time: historyController.historyList[i]["booking_time"],
-                  accountController: widget.accountController,
+                  dropoffAddress:   historyViewmodel.historyList[i]["dropoff_address"],
+                  dropoffLatitude:  historyViewmodel.historyList[i]["dropoff_latitude"],
+                  dropoffLongitude: historyViewmodel.historyList[i]["dropoff_longitude"],
+                  time: readDateTime(historyViewmodel.historyList[i]["booking_time"]),
+                  accountViewmodel: widget.accountViewmodel,
                   duringTrip: duringTrip,
                   saveDuringTrip: (bool value) async => saveDuringTrip(value)
                 ));
@@ -192,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
           
           SearchDestinationButton(
             vehicleID: vehicleID,
-            accountController: widget.accountController,
+            accountViewmodel: widget.accountViewmodel,
             duringTrip: duringTrip,
             saveDuringTrip: (bool value) async => saveDuringTrip(value)
           )
@@ -212,7 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
           context, MaterialPageRoute(
             builder: (context) => BookScreen(
               vehicleID: vehicleID,
-              accountController: widget.accountController,
+              accountViewmodel: widget.accountViewmodel,
               duringTrip: duringTrip,
               saveDuringTrip: (bool value) async => saveDuringTrip(value)
             )
@@ -322,7 +331,7 @@ class DestinationButton extends StatelessWidget {
     required this.dropoffLatitude,
     required this.dropoffLongitude,
     required this.time,
-    required this.accountController,
+    required this.accountViewmodel,
     required this.duringTrip,
     required this.saveDuringTrip
   }) : super(key: key);
@@ -332,7 +341,7 @@ class DestinationButton extends StatelessWidget {
   final double dropoffLatitude;
   final double dropoffLongitude;
   final String time;
-  final AccountController accountController;
+  final AccountViewmodel accountViewmodel;
   final bool duringTrip;
   final Function(bool) saveDuringTrip;
 
@@ -352,7 +361,7 @@ class DestinationButton extends StatelessWidget {
             dropoffAddress:   dropoffAddress,
             dropoffLatitude:  dropoffLatitude,
             dropoffLongitude: dropoffLongitude,
-            accountController: accountController,
+            accountViewmodel: accountViewmodel,
             duringTrip: duringTrip,
             saveDuringTrip: (bool value) async => saveDuringTrip(value)
           ))),
@@ -366,7 +375,7 @@ class DestinationButton extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  dropoffAddress,
+                  (dropoffAddress.length > 70) ? "${dropoffAddress.substring(0, 70)}..." : dropoffAddress,
                   style: const TextStyle(fontSize: 16),
                   textAlign: TextAlign.left,
                 ),
@@ -395,13 +404,13 @@ class SearchDestinationButton extends StatelessWidget {
   const SearchDestinationButton({
     Key? key,
     required this.vehicleID,
-    required this.accountController,
+    required this.accountViewmodel,
     required this.duringTrip,
     required this.saveDuringTrip
   }) : super(key: key);
 
   final int vehicleID;
-  final AccountController accountController;
+  final AccountViewmodel accountViewmodel;
   final bool duringTrip;
   final Function(bool) saveDuringTrip;
 
@@ -422,7 +431,7 @@ class SearchDestinationButton extends StatelessWidget {
     
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookScreen(
             vehicleID: vehicleID,
-            accountController: accountController,
+            accountViewmodel: accountViewmodel,
             duringTrip: duringTrip,
             saveDuringTrip: (bool value) async => saveDuringTrip(value)
           ))),
@@ -465,13 +474,13 @@ class DuringTripButton extends StatelessWidget {
   const DuringTripButton({
     Key? key,
     required this.vehicleID,
-    required this.accountController,
+    required this.accountViewmodel,
     required this.onSetTrip,
     required this.duringTrip,
     required this.saveDuringTrip
   }) : super(key: key);
   final int vehicleID;
-  final AccountController accountController;
+  final AccountViewmodel accountViewmodel;
   final Function(bool) onSetTrip;
   final bool duringTrip;
   final Function(bool) saveDuringTrip;
@@ -493,7 +502,7 @@ class DuringTripButton extends StatelessWidget {
     
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BookScreen(
             vehicleID: vehicleID,
-            accountController: accountController,
+            accountViewmodel: accountViewmodel,
             duringTrip: duringTrip,
             saveDuringTrip: (bool value) async => saveDuringTrip(value)
           ))),

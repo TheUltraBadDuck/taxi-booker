@@ -1,16 +1,14 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
+import '/service/firebase_service.dart';
 import '/view/navigation.dart' show NavigationChange;
-import '/service/firebase_notification.dart';
 
 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await FireBaseAPI.initialMessage();
+  await FirebaseService.initializeApp();
   tz.initializeTimeZones();
   runApp(const MyApp());
 }
