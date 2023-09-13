@@ -1,7 +1,9 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 
+import '/service/firebase_service.dart' as noti;
 import '/view/navigation/home_screen.dart' show HomeScreen;
 import '/view/navigation/history_screen.dart' show HistoryScreen;
 import '/view/navigation/profile_screen.dart' show ProfileScreen;
@@ -9,7 +11,7 @@ import '/view/navigation/profile_screen.dart' show ProfileScreen;
 import '/view/account/register_screen.dart' show RegisterScreen;
 import '/view/account/login_screen.dart' show LoginScreen;
 
-import '/view_model/account_controller.dart';
+import '/view_model/account_viewmodel.dart';
 import '/view/decoration.dart';
 
 
@@ -42,37 +44,50 @@ class _NavigationChangeState extends State<NavigationChange> {
 
 
   @override
+  void initState() {
+    super.initState();
+    noti.initialize();
+  }
+
+
+
+  @override
   Widget build(BuildContext context) {
 
     return ChangeNotifierProvider(
       
       create: (_) {
-        AccountController accountController = AccountController();
+        AccountViewmodel accountViewmodel = AccountViewmodel();
         _children = [
-          HomeScreen(accountController: accountController, setLogoutAble: (bool value) => setState(() => logoutAble = value)),
-          HistoryScreen(accountController: accountController),
-          ProfileScreen(accountController: accountController, onLogOut: () async {
+          HomeScreen(accountViewmodel: accountViewmodel, setLogoutAble: (bool value) => setState(() => logoutAble = value)),
+          HistoryScreen(accountViewmodel: accountViewmodel),
+          ProfileScreen(accountViewmodel: accountViewmodel, onLogOut: () async {
             if (logoutAble) {
               setState(() { bottomId = 0;
                             screenState = ScreenState.registerScreen; });
-              await accountController.updateLogOut();
+              await accountViewmodel.updateLogOut();
             }
             else {
               warningModal(context, "Chuyến đi chưa kết thúc. Hãy tiếp tục chuyến đi của bạn.");
             }
           })
         ];
-        return accountController;
+        FirebaseMessaging.onMessage.listen(noti.showFCMBox);
+        FirebaseMessaging.onMessageOpenedApp.listen(noti.showFCMBox);
+        FirebaseMessaging.onBackgroundMessage(noti.showFCMBox);
+      
+
+        return accountViewmodel;
       },
 
 
       builder: (context, child) => StreamBuilder<int> (
         
-        stream: preload(Provider.of<AccountController>(context)),
+        stream: preload(Provider.of<AccountViewmodel>(context)),
     
         builder: (BuildContext context, AsyncSnapshot<int> snapshot) {
     
-          if (Provider.of<AccountController>(context).account.map["_id"] != "") {
+          if (Provider.of<AccountViewmodel>(context).account.map["_id"] != "") {
             screenState = ScreenState.applicationScreens;
           }
           else {
@@ -87,7 +102,7 @@ class _NavigationChangeState extends State<NavigationChange> {
     
             case ScreenState.registerScreen:
               return RegisterScreen(
-                accountController: Provider.of<AccountController>(context),
+                accountViewmodel: Provider.of<AccountViewmodel>(context),
                 onLogIn: () => setState(() => screenState = ScreenState.applicationScreens),
                 switchToLogin: () => setState(() => screenState = ScreenState.loginScreen)
               );
@@ -95,7 +110,7 @@ class _NavigationChangeState extends State<NavigationChange> {
               
             case ScreenState.loginScreen:
               return LoginScreen(
-                accountController: Provider.of<AccountController>(context),
+                accountViewmodel: Provider.of<AccountViewmodel>(context),
                 onLogIn: () => setState(() => screenState = ScreenState.applicationScreens),
                 switchToRegister: () => setState(() => screenState = ScreenState.registerScreen)
               );
@@ -142,10 +157,10 @@ class _NavigationChangeState extends State<NavigationChange> {
 
 
   bool preloadOnce = false;
-  Stream<int> preload(accountController) async* {
+  Stream<int> preload(accountViewmodel) async* {
     if (!preloadOnce) {
       preloadOnce = true;
-      await accountController.preload();
+      await accountViewmodel.preload();
     }
   }
 }

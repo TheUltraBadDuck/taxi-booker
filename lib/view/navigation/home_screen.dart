@@ -1,6 +1,7 @@
 import 'dart:async';
 import "dart:developer" as developer;
 
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,11 +10,10 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '/service/firebase_notification.dart';
 import '/service/notification.dart';
 import '/general/function.dart';
-import '/view_model/account_controller.dart';
-import '/view_model/map_api_controller.dart';
+import '../../view_model/account_viewmodel.dart';
+import '../../view_model/map_api_viewmodel.dart';
 import '/view/decoration.dart';
 import '/view/navigation/customer/customer_accepted_box.dart';
 import '/view/navigation/customer/customer_info_box.dart';
@@ -25,8 +25,8 @@ enum DriverState { receiveState, tripState }
 
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({ Key? key, required this.accountController, required this.setLogoutAble }) : super(key: key);
-  final AccountController accountController;
+  const HomeScreen({ Key? key, required this.accountViewmodel, required this.setLogoutAble }) : super(key: key);
+  final AccountViewmodel accountViewmodel;
   final Function(bool) setLogoutAble;
 
   @override
@@ -49,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
-
+  bool duringLoading = false;
   bool duringTrip = false;
   bool tracking = true;
 
@@ -57,11 +57,16 @@ class _HomeScreenState extends State<HomeScreen> {
   int customerLength = 0;
   int currCustomer = 0;
 
+  late var listenLocation;
+
+  // --------------------  Các hàm chính -------------------- 
+
 
 
   @override
   void initState() {
     super.initState();
+    location.enableBackgroundMode(enable: true);
     noti.initialize();
   }
 
@@ -70,6 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     super.dispose();
     postDriverTimer?.cancel();
+    listenLocation.cancel();
   }
 
 
@@ -84,38 +90,38 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ChangeNotifierProvider(
 
         create: (_) {
-          MapAPIController mapAPIController = MapAPIController();
+          MapAPIViewmodel mapAPIViewmodel = MapAPIViewmodel();
 
           // Lắng nghe định vị GPS
-          location.onLocationChanged.listen((LocationData currLocation) {
-            final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
+          listenLocation = location.onLocationChanged.listen((LocationData currLocation) {
+            mapAPIViewmodel.updateDriverLatLng(LatLng(currLocation.latitude!, currLocation.longitude!));
+            setState(() => allowedNavigation = true);
+            if (tracking) setState(() => mapController.move(mapAPIViewmodel.mapAPI.driverLatLng, 16.5));
+          });
 
-            double distance = getDescrateDistanceSquare(mapAPIController.mapAPI.driverLatLng, newLocation);
-            if (distance > 10e-7) {
-
-              if (mounted) {
-                mapAPIController.updateDriverLatLng(newLocation);
-                setState(() => allowedNavigation = true);
+          final ref = FirebaseDatabase.instance.ref();
+          ref.child("bookingRequests").onValue.listen((event) {
+            if (driverState == DriverState.receiveState) {
+              Map<String, dynamic> result = { "status": false, "body": [] };
+              Map mapCreated = Map.from(event.snapshot.value as Map<Object?, Object?>);
+              int count = 0;
+              for (String tripId in mapCreated.keys) {
+                if (count >= 5) {
+                  break;
+                }
+                if (mapCreated[tripId]["status"] == "PENDING") {
+                  final oneResult = mapCreated[tripId].map((k, v) => MapEntry<String, dynamic>(k ?? "$k", v));
+                  oneResult["_id"] = tripId;
+                  result["body"].add(oneResult.cast<String, dynamic>());
+                  result["status"] = true;
+                  count++;
+                }
               }
-
-              // Cập nhật nếu đến đích
-              if (driverPickingUp && (getDescrateDistanceSquare(mapAPIController.mapAPI.driverLatLng, mapAPIController.mapAPI.dropoffLatLng) < 20e-6)) {
-                finishTrip(mapAPIController);
-              }
-            }
-            if ((distance > 20e-6) && tracking) {
-              setState(() => mapController.move(mapAPIController.mapAPI.driverLatLng, 16.5));
-            }
-
-            // Lắng nghe khách hàng
-            if ((driverState == DriverState.tripState) && !driverPickingUp) {
-              if (getDescrateDistanceSquare(mapAPIController.mapAPI.pickupLatLng, mapAPIController.mapAPI.driverLatLng) < 10e-7) {
-                setState(() => driverPickingUp = true);
-              }
+              mapAPIViewmodel.updateCustomerList(result["body"].cast<Map<String, dynamic>>());
             }
           });
 
-          return mapAPIController;
+          return mapAPIViewmodel;
         },
 
         builder: (BuildContext context, Widget? child) => Stack(children: [
@@ -123,11 +129,11 @@ class _HomeScreenState extends State<HomeScreen> {
           // -------------------- Bản đồ --------------------
           Positioned(top: 0, bottom: 0, left: 0, right: 0, child: StreamBuilder(
       
-            stream: _waitForServerObserver(context.read<MapAPIController>()),
+            stream: _waitForServerObserver(context.read<MapAPIViewmodel>()),
           
             builder: (BuildContext context, AsyncSnapshot<int> snapshot) => FlutterMap(
             mapController: mapController,
-            options: MapOptions(center: context.watch<MapAPIController>().mapAPI.pickupLatLng, zoom: 16.5),
+            options: MapOptions(center: context.watch<MapAPIViewmodel>().mapAPI.pickupLatLng, zoom: 16.5),
           
             nonRotatedChildren: [
               RichAttributionWidget(
@@ -150,19 +156,19 @@ class _HomeScreenState extends State<HomeScreen> {
           
               PolylineLayer(
                 polylines: [
-                  context.watch<MapAPIController>().mapAPI.s2ePolylines,
-                  if (!driverPickingUp) context.watch<MapAPIController>().mapAPI.d2sPolylines
+                  context.watch<MapAPIViewmodel>().mapAPI.s2ePolylines,
+                  if (!driverPickingUp) context.watch<MapAPIViewmodel>().mapAPI.d2sPolylines
                 ],
               ),
           
               MarkerLayer(
                 markers: [
                   if (allowedNavigation)
-                    Marker( point: context.watch<MapAPIController>().mapAPI.driverLatLng, width: 20, height: 20, builder: (context) => const DriverPoint() ),
+                    Marker( point: context.watch<MapAPIViewmodel>().mapAPI.driverLatLng, width: 20, height: 20, builder: (context) => const DriverPoint() ),
                   if ((driverState == DriverState.tripState) && !driverPickingUp)
-                    Marker( point: context.watch<MapAPIController>().mapAPI.pickupLatLng, width: 20, height: 20, builder: (context) => const CustomerPoint() ),
+                    Marker( point: context.watch<MapAPIViewmodel>().mapAPI.pickupLatLng, width: 20, height: 20, builder: (context) => const CustomerPoint() ),
                   if (driverState == DriverState.tripState)
-                    Marker( point: context.watch<MapAPIController>().mapAPI.dropoffLatLng, width: 20, height: 20, builder: (context) => const DestiPoint() )
+                    Marker( point: context.watch<MapAPIViewmodel>().mapAPI.dropoffLatLng, width: 20, height: 20, builder: (context) => const DestiPoint() )
                 ],
               )
           
@@ -196,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("Xin chào, ", style: TextStyle(fontSize: 20)),
-              Text(widget.accountController.account.map["full_name"], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))
+              Text(widget.accountViewmodel.account.map["full_name"], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))
             ]
           )),
       
@@ -215,19 +221,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (driverState == DriverState.receiveState)
             Positioned(bottom: 15, left: 15, right: 15, child: CustomerInfos(
-              mapAPIController: context.read<MapAPIController>(),
+              mapAPIViewmodel: context.read<MapAPIViewmodel>(),
               currCustomer: currCustomer,
               onTapLeft: ()  { if (currCustomer > 0) setState(() => currCustomer--); },
               onTapRight: () { if (currCustomer < customerLength - 1) setState(() => currCustomer++); }, 
               onAccepted: () async {
-                if (context.mounted) await context.read<MapAPIController>().updateCurrentCustomer(currCustomer);
+                if (context.mounted) await context.read<MapAPIViewmodel>().updateCurrentCustomer(currCustomer);
                 if (context.mounted) {
-                  if (await context.read<MapAPIController>().sendBookingAccept()) {
-                    if (context.mounted) await context.read<MapAPIController>().saveTrip();
+                  if (await context.read<MapAPIViewmodel>().sendBookingAccept()) {
+                    if (context.mounted) await context.read<MapAPIViewmodel>().saveTrip();
                     await saveDuringTrip(true);
                     setState(() => driverState = DriverState.tripState);
-                    // FireBaseAPI.sendMessage("f7W0AYWLQmS99_gAvJIfKt:APA91bGu3D8wufjhtUrfDd069hFcKKpppaCfH0fpQdg7DoFwMy4zgcb8womqHOI7jFapFzQQz5WjGZdHep948pg5iYDzjoskkEQCk4koUyRQq2t6ynbqyAgszj5Kz2g1DGqtIjnmjYRw");
                     widget.setLogoutAble(false);
+
+                    if (context.mounted) {
+                      if (context.read<MapAPIViewmodel>().mapAPI.customerId.isEmpty) {
+                        context.read<MapAPIViewmodel>().sendSMS();
+                      }
+                      else {
+                        context.read<MapAPIViewmodel>().sendNotification();
+                      }
+                    }
                   }
                 }
               }
@@ -235,9 +249,14 @@ class _HomeScreenState extends State<HomeScreen> {
     
           else if (driverState == DriverState.tripState)
             Positioned(bottom: 15, left: 15, right: 15, child: CustomerInfosAccepted(
-              mapAPIController: context.read<MapAPIController>(),
-              onCancelled: () async => finishTrip(context.read<MapAPIController>())
-            ))
+              mapAPIViewmodel: context.read<MapAPIViewmodel>(),
+              onCancelled: () async => finishTrip(context.read<MapAPIViewmodel>())
+            )),
+
+          
+          if (duringLoading) Positioned(top: 0, bottom: 0, left: 0, right: 0, child: Container(
+            decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5))
+          ))
         ]),
       )
     );
@@ -245,17 +264,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
-  Future finishTrip(mapAPIController) async {
+  Future finishTrip(mapAPIViewmodel) async {
     setState(() { driverPickingUp = false;
                   driverState = DriverState.receiveState;
                   currCustomer = 0; });
     widget.setLogoutAble(true);
     noti.showBox("Chuyến đi thành công!", "Cảm ơn bạn đã chở khách hàng đến nơi.");
     await saveDuringTrip(false);
-    await mapAPIController.completeTrip();
-    await mapAPIController.clearTrip();
-    await mapAPIController.loadCustomers();
-    setState(() => customerLength = mapAPIController.customerList.length);
+    await mapAPIViewmodel.completeTrip();
+    await mapAPIViewmodel.clearTrip();
+    setState(() => customerLength = mapAPIViewmodel.customerList.length);
   }
 
 
@@ -263,30 +281,53 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? postDriverTimer;
   bool loadPostDriverOnce = false;
   bool loadOnce = false;
-  Stream<int> _waitForServerObserver(mapAPIController) async* {
+  Stream<int> _waitForServerObserver(mapAPIViewmodel) async* {
 
-    if (!loadOnce && widget.accountController.account.map["_id"] != "") {
+    if (!loadOnce && widget.accountViewmodel.account.map["_id"] != "") {
+
       loadOnce = true;
+      setState(() => duringLoading = true);
       final currLocation = await location.getLocation();
-      mapAPIController.updateDriverLatLng(LatLng(currLocation.latitude!, currLocation.longitude!));
+      mapAPIViewmodel.updateDriverLatLng(LatLng(currLocation.latitude!, currLocation.longitude!));
 
       await loadDuringTrip();
       if (duringTrip) {
-        await mapAPIController.loadTrip();
+        await mapAPIViewmodel.loadTrip();
         setState(() { driverState = DriverState.tripState;
                       widget.setLogoutAble(false); });
       }
       else {
-        await mapAPIController.loadCustomers();
-        setState(() => customerLength = mapAPIController.customerList.length);
+        setState(() => customerLength = mapAPIViewmodel.customerList.length);
       }
+      setState(() => duringLoading = false);
     }
+
 
 
     if (!loadPostDriverOnce && allowedNavigation) {
       loadPostDriverOnce = true;
       postDriverTimer = Timer.periodic(const Duration(seconds: 10), (timerRunning) async {
-        await mapAPIController.patchDriverLatLng();
+        await mapAPIViewmodel.patchDriverLatLng();
+
+        final currLocation = await location.getLocation();
+        final newLocation = LatLng(currLocation.latitude!, currLocation.longitude!);
+        double distance = getDescrateDistanceSquare(mapAPIViewmodel.mapAPI.driverLatLng, newLocation);
+        if (distance > 10e-7) {
+          // Cập nhật nếu đến đích
+          if (driverPickingUp && (getDescrateDistanceSquare(mapAPIViewmodel.mapAPI.driverLatLng, mapAPIViewmodel.mapAPI.dropoffLatLng) < 20e-6)) {
+            finishTrip(mapAPIViewmodel);
+          }
+        }
+        if ((distance > 20e-6) && tracking) {
+          setState(() => mapController.move(mapAPIViewmodel.mapAPI.driverLatLng, 16.5));
+        }
+
+        // Lắng nghe khách hàng
+        if ((driverState == DriverState.tripState) && !driverPickingUp) {
+          if (getDescrateDistanceSquare(mapAPIViewmodel.mapAPI.pickupLatLng, mapAPIViewmodel.mapAPI.driverLatLng) < 10e-7) {
+            setState(() => driverPickingUp = true);
+          }
+        }
       });
     }
     
@@ -307,8 +348,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> loadDuringTrip() async {
     SharedPreferences sp = await SharedPreferences.getInstance();
-    final newDuringTrip = sp.getBool("duringTrip");
-    setState(() => duringTrip = newDuringTrip ?? false);
+    bool newDuringTrip = sp.getBool("duringTrip") ?? false;
+    setState(() => duringTrip = newDuringTrip);
     developer.log("[Load during trip] Load $newDuringTrip");
   }
 

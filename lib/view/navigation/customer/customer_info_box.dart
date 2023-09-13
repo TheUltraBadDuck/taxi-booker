@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '/view_model/map_api_controller.dart';
+import '../../../view_model/map_api_viewmodel.dart';
 import '/view/decoration.dart';
 import '/general/function.dart';
 
@@ -10,14 +10,14 @@ class CustomerInfos extends StatefulWidget {
 
   const CustomerInfos({
     Key? key,
-    required this.mapAPIController,
+    required this.mapAPIViewmodel,
     required this.currCustomer,
     required this.onAccepted,
     required this.onTapLeft,
     required this.onTapRight
   }) : super(key: key);
 
-  final MapAPIController mapAPIController;
+  final MapAPIViewmodel mapAPIViewmodel;
   final int currCustomer;
   final VoidCallback onAccepted;
   final VoidCallback onTapLeft;
@@ -97,11 +97,11 @@ class _CustomerInfosState extends State<CustomerInfos> {
 
 
   writeMapValue(String key, bool returnString) {
-    if (widget.mapAPIController.customerList.isEmpty) {
+    if (widget.mapAPIViewmodel.customerList.isEmpty) {
       return returnString ? "" : 0;
     }
     else {
-      return widget.mapAPIController.customerList[widget.currCustomer][key];
+      return widget.mapAPIViewmodel.customerList[widget.currCustomer][key];
     }
   }
 }

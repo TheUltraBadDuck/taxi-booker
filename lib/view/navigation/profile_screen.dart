@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '/view_model/account_controller.dart';
+import '../../view_model/account_viewmodel.dart';
 import '/view/decoration.dart';
 
 
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({ Key? key, required this.accountController, required this.onLogOut }) : super(key: key);
-  final AccountController accountController;
+  const ProfileScreen({ Key? key, required this.accountViewmodel, required this.onLogOut }) : super(key: key);
+  final AccountViewmodel accountViewmodel;
   final Future<void> Function() onLogOut;
 
   @override
@@ -74,8 +74,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       
           children: [
             const SizedBox(height: 90),
-            RegularTextField(controller: usernameController,    labelText: "Tên người dùng", text: widget.accountController.account.map["full_name"]),
-            RegularTextField(controller: phonenumberController, labelText: "Số điện thoại",  text: widget.accountController.account.map["phone"]),
+            RegularTextField(controller: usernameController,    labelText: "Tên người dùng", text: widget.accountViewmodel.account.map["full_name"]),
+            RegularTextField(controller: phonenumberController, labelText: "Số điện thoại",  text: widget.accountViewmodel.account.map["phone"]),
             //RegularTextField(controller: usernameController,    labelText: "Tên người dùng", text: Provider.of<UserController>(context).account.map["name"]),
 
             const SizedBox(height: 30),

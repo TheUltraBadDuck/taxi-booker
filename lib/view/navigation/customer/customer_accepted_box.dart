@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '/general/function.dart';
 import '/view/decoration.dart';
-import '../../../view_model/map_api_controller.dart';
+import '../../../view_model/map_api_viewmodel.dart';
 
 
 
@@ -10,11 +10,11 @@ class CustomerInfosAccepted extends StatelessWidget {
 
   const CustomerInfosAccepted({
     Key? key,
-    required this.mapAPIController,
+    required this.mapAPIViewmodel,
     required this.onCancelled
   }) : super(key: key);
 
-  final MapAPIController mapAPIController;
+  final MapAPIViewmodel mapAPIViewmodel;
   final VoidCallback onCancelled;
 
 
@@ -39,26 +39,26 @@ class CustomerInfosAccepted extends StatelessWidget {
 
         const SizedBox(height: 10),
 
-        Text(mapAPIController.mapAPI.customerPhonenumber, style: const TextStyle(fontSize: 20)),
+        Text(mapAPIViewmodel.mapAPI.customerPhonenumber, style: const TextStyle(fontSize: 20)),
 
         const SizedBox(height: 10),
 
         PositionBox(
           icon: Icon(Icons.add_circle, color: Colors.deepOrange.shade900),
           height: 45,
-          position: mapAPIController.mapAPI.pickupAddr
+          position: mapAPIViewmodel.mapAPI.pickupAddr
         ),
 
         PositionBox(
           icon: Icon(Icons.place, color: Colors.deepOrange.shade900),
           height: 45,
-          position: mapAPIController.mapAPI.dropoffAddr
+          position: mapAPIViewmodel.mapAPI.dropoffAddr
         ),
 
         Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-          Expanded(child: PriceButton(text:"${mapAPIController.mapAPI.price} VNĐ")),
-          Expanded(child: PriceButton(text: distanceToString(mapAPIController.mapAPI.distance))),
-          Expanded(child: PriceButton(text: durationToString(mapAPIController.mapAPI.duration)))
+          Expanded(child: PriceButton(text:"${mapAPIViewmodel.mapAPI.price} VNĐ")),
+          Expanded(child: PriceButton(text: distanceToString(mapAPIViewmodel.mapAPI.distance))),
+          Expanded(child: PriceButton(text: durationToString(mapAPIViewmodel.mapAPI.duration)))
         ]),
 
         BigButton(label: "Xong", onPressed: onCancelled, bold: true)

@@ -1,13 +1,14 @@
 {
   "project_info": {
-    "project_number": "806836950090",
-    "project_id": "driver-taxi-69a24",
-    "storage_bucket": "driver-taxi-69a24.appspot.com"
+    "project_number": "1070862182524",
+    "firebase_url": "https://taxi-fa3d3-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "taxi-fa3d3",
+    "storage_bucket": "taxi-fa3d3.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:806836950090:android:a2cd0cfe1c3721e8ec02b3",
+        "mobilesdk_app_id": "1:1070862182524:android:861aaabded49094e5481f9",
         "android_client_info": {
           "package_name": "com.example.driver_app"
         }
@@ -15,7 +16,26 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAVGmJTgVM793Fw8poz-OekxshGLzbCybc"
+          "current_key": "AIzaSyA2CHHUmIGRJwt-sKnfwVVGKxbvh5b_yb0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1070862182524:android:34a2579e8b753f355481f9",
+        "android_client_info": {
+          "package_name": "com.example.flutter_app_texting"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2CHHUmIGRJwt-sKnfwVVGKxbvh5b_yb0"
         }
       ],
       "services": {
